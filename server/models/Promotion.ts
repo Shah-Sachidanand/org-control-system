@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IPromotion, PromotionType, PromotionStatus } from '../types/index.js';
+import { IPromotion, PromotionType, PromotionStatus } from '../types';
 
 const promotionSchema = new Schema<IPromotion>({
     title: {

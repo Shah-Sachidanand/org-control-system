@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
-import Merchandise from '../models/Merchandise.js';
-import { authenticate, checkFeatureAccess } from '../middleware/auth.js';
-import { CreateMerchandiseRequest, UpdateMerchandiseRequest } from '../types/index.js';
+import Merchandise from '../models/Merchandise';
+import { authenticate, checkFeatureAccess } from '../middleware/auth';
+import { CreateMerchandiseRequest, UpdateMerchandiseRequest } from '../types/index';
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ router.get('/:id', authenticate, checkFeatureAccess('merchandise', 'read'), asyn
         // Check organization access
         const currentUser = req.user;
         if (currentUser.role !== 'SUPERADMIN' &&
-            merchandise.organizationId._id.toString() !== currentUser.organization._id.toString()) {
+            merchandise.organizationId !== currentUser.organization._id) {
             return res.status(403).json({ error: 'Access denied' });
         }
 

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IInvitation, UserRole } from '../types/index.js';
+import { IInvitation, UserRole } from '../types';
 import crypto from 'crypto';
 
 const invitationSchema = new Schema<IInvitation>({

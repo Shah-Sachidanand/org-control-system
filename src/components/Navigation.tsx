@@ -17,7 +17,18 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "./ui/navigation-menu";
-import { User, LogOut, Settings, ShieldCheck } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Settings,
+  Users,
+  Gift,
+  Megaphone,
+  ShieldCheck,
+  UserPlus,
+  Eye,
+  Plus,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 export const Navigation: React.FC = () => {
@@ -44,29 +55,22 @@ export const Navigation: React.FC = () => {
       show: hasPermission("promotion", "read"),
       children: [
         {
-          title: "Email Campaigns",
-          href: "/promotions/email",
-          show: hasPermission("promotion", "read", "email"),
+          title: "Dashboard",
+          href: "/promotions",
+          show: hasPermission("promotion", "read"),
+          icon: Megaphone,
         },
         {
-          title: "Unique Codes",
-          href: "/promotions/unique-codes",
-          show: hasPermission("promotion", "read", "unique_code"),
+          title: "View All",
+          href: "/promotions/view",
+          show: hasPermission("promotion", "read"),
+          icon: Eye,
         },
         {
-          title: "QR Codes",
-          href: "/promotions/qr-codes",
-          show: hasPermission("promotion", "read", "qr_code"),
-        },
-        {
-          title: "Video Campaigns",
-          href: "/promotions/video",
-          show: hasPermission("promotion", "read", "video"),
-        },
-        {
-          title: "Joining Bonus",
-          href: "/promotions/joining-bonus",
-          show: hasPermission("promotion", "read", "joining_bonus"),
+          title: "Create New",
+          href: "/promotions/create",
+          show: hasPermission("promotion", "write"),
+          icon: Plus,
         },
       ],
     },
@@ -76,24 +80,22 @@ export const Navigation: React.FC = () => {
       show: hasPermission("merchandise", "read"),
       children: [
         {
-          title: "Experience Rewards",
-          href: "/merchandise/experience",
-          show: hasPermission("merchandise", "read", "experience"),
+          title: "Dashboard",
+          href: "/merchandise",
+          show: hasPermission("merchandise", "read"),
+          icon: Gift,
         },
         {
-          title: "Loaded Value",
-          href: "/merchandise/loaded-value",
-          show: hasPermission("merchandise", "read", "loaded_value"),
+          title: "View All",
+          href: "/merchandise/view",
+          show: hasPermission("merchandise", "read"),
+          icon: Eye,
         },
         {
-          title: "Autographs",
-          href: "/merchandise/autographs",
-          show: hasPermission("merchandise", "read", "autograph"),
-        },
-        {
-          title: "Merch Levels",
-          href: "/merchandise/levels",
-          show: hasPermission("merchandise", "read", "merch_level"),
+          title: "Add New",
+          href: "/merchandise/add",
+          show: hasPermission("merchandise", "write"),
+          icon: Plus,
         },
       ],
     },
@@ -103,6 +105,20 @@ export const Navigation: React.FC = () => {
       show:
         hasPermission("user_management", "read") ||
         ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(user.role),
+      children: [
+        {
+          title: "Manage Users",
+          href: "/users",
+          show: hasPermission("user_management", "read"),
+          icon: Users,
+        },
+        {
+          title: "Invite User",
+          href: "/users/invite",
+          show: hasPermission("user_management", "write"),
+          icon: UserPlus,
+        },
+      ],
     },
     {
       title: "Organizations",
@@ -148,10 +164,15 @@ export const Navigation: React.FC = () => {
                                       >
                                         <Link
                                           to={child.href}
-                                          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                                          className="flex items-center space-x-3 select-none rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                                         >
-                                          <div className="text-sm font-medium leading-none">
-                                            {child.title}
+                                          {child.icon && (
+                                            <child.icon className="h-4 w-4" />
+                                          )}
+                                          <div>
+                                            <div className="text-sm font-medium leading-none">
+                                              {child.title}
+                                            </div>
                                           </div>
                                         </Link>
                                       </NavigationMenuLink>

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
-import Promotion from '../models/Promotion.js';
-import { authenticate, checkFeatureAccess } from '../middleware/auth.js';
-import { CreatePromotionRequest, UpdatePromotionRequest } from '../types/index.js';
+import Promotion from '../models/Promotion';
+import { authenticate, checkFeatureAccess } from '../middleware/auth';
+import { CreatePromotionRequest, UpdatePromotionRequest } from '../types';
 
 const router = express.Router();
 
@@ -45,7 +45,7 @@ router.get('/:id', authenticate, checkFeatureAccess('promotion', 'read'), async 
         // Check organization access
         const currentUser = req.user;
         if (currentUser.role !== 'SUPERADMIN' &&
-            promotion.organizationId._id.toString() !== currentUser.organization._id.toString()) {
+            promotion?.organizationId !== currentUser?.organization?._id) {
             return res.status(403).json({ error: 'Access denied' });
         }
 

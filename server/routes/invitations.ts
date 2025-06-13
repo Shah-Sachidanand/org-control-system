@@ -1,10 +1,10 @@
 import express, { Request, Response } from 'express';
-import User from '../models/User.js';
-import Organization from '../models/Organization.js';
-import Invitation from '../models/Invitation.js';
-import { authenticate, authorize } from '../middleware/auth.js';
-import { sendInvitationEmail } from '../utils/email.js';
-import { InviteUserRequest } from '../types/index.js';
+import User from '../models/User';
+import Organization from '../models/Organization';
+import Invitation from '../models/Invitation';
+import { authenticate, authorize } from '../middleware/auth';
+import { sendInvitationEmail } from '../utils/email';
+import { InviteUserRequest } from '../types/index';
 
 const router = express.Router();
 

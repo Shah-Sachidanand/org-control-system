@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IMerchandise, MerchandiseType, MerchandiseStatus } from '../types/index.js';
+import { IMerchandise, MerchandiseType, MerchandiseStatus } from '../types';
 
 const merchandiseSchema = new Schema<IMerchandise>({
     name: {
