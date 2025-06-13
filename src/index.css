@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0, 0%, 100%;
+    --foreground: 235 28% 23%;
+    --base-color: 0 0% 100%;
+    --white: 0 0% 100%;
+    --green: 123, 100%, 41%;
+    --black: 0 0% 0%;
+    --success: 123 100% 41%;
+    --card: 200 14.3% 95.9%;
+    --card-foreground: 235 28% 23%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 235 28% 23%;
+    --primary: 235 28% 23%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 0, 0%, 34%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --active: 123 100% 41%;
+    --active-foreground: 120 100 25.1;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --warning: 33 93% 54%;
+    --warning-foreground: 0 0% 98%;
+    --border: 200 14% 96%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.625rem;
+
+    /* Font Size - 16px root */
+    --font-size-2xs: 0.625rem;
+    /* 10px */
+    --font-size-xs: 0.75rem;
+    /* 12px */
+    --font-size-sm: 0.875rem;
+    /* 14px */
+    --font-size-base: 1rem;
+    /* 16px */
+    --font-size-lg: 1.125rem;
+    /* 18px */
+    --font-size-xl: 1.25rem;
+    /* 20px */
+    --font-size-2xl: 1.5rem;
+    /* 24px */
+    --font-size-3xl: 1.75rem;
+    /* 28px */
+    --font-size-4xl: 1.875rem;
+    /* 30px */
+    --font-size-5xl: 2.5rem;
+    /* 40px */
+    --font-size-6xl: 3.125rem;
+    /* 50px */
+    /* Font Weight - base 400*/
+    --font-weight-thin: 100;
+    --font-weight-extralight: 200;
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    /* Line Height */
+    --line-height-2xs: 1rem;
+    /* 16px */
+    --line-height-xs: 1rem;
+    /* 16px */
+    --line-height-sm: 1.25rem;
+    /* 20px */
+    --line-height-base: 1.5rem;
+    /* 24px */
+    --line-height-lg: 1.75rem;
+    /* 28px */
+    --line-height-xl: 1.75rem;
+    /* 28px */
+    --line-height-2xl: 2rem;
+    /* 32px */
+    --line-height-3xl: 2.25rem;
+    /* 36px */
+    --line-height-4xl: 2.5rem;
+    /* 40px */
+    --line-height-5xl: 3rem;
+    /* 48px */
+    --line-height-6xl: 3.5rem;
+    /* 56px */
+
+    /* width */
+
+    --app-width-mobile: 540px;
+    --app-width-tablet: 960px;
+    --app-width-desktop: 1200px;
+    --app-width: 1615px;
+    /* padding */
+    --app-padding: 250px;
+  }
+
+  .dark {
+    --background: 0 0% 1%;
+    --foreground: 210 40% 98%;
+    --base-color: 0 0% 9%;
+    --card: 222.2 84% 4.9%;
+    --green: 123, 100%, 41%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 0, 0%, 13%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+
+    :focus-visible {
+      outline: none;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+body {
+  font-family: 'Rubik', sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  scroll-behavior: smooth;
+}
+
+h1 {
+  font-size: var(--font-size-5xl);
+  line-height: var(--line-height-5xl);
+}
+
+h2 {
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-4xl);
+}
+
+h3 {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-3xl);
+}
+
+h4 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-2xl);
+}
+
+h5 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+}
+
+h6 {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+}
+
+pre {
+  font-family: 'Rubik', sans-serif;
+}
+
+
+/* Auto Fill inputs by Browser styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px hsl(var(--input-auto-fill)) inset !important;
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--subtitle), 0.2);
+  border-radius: 10px;
+
+  &:hover {
+    background: darkgray;
+  }
+}
