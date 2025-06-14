@@ -204,6 +204,18 @@ export const createDemoData = async () => {
       console.log('SuperAdmin created: superadmin@system.com / SuperAdmin123!');
     }
 
+    // ✅ Create demo admin
+    const demoAdmin = await User.create({
+      email: 'admin@demo.com',
+      password: 'Admin123!',
+      firstName: 'Demo',
+      lastName: 'Admin',
+      role: 'ADMIN',
+      permissions: [],
+      createdBy: superAdmin._id
+    });
+
+
     // ✅ Create demo organization
     const demoOrg = await Organization.create({
       name: 'Demo Organization',
@@ -232,22 +244,10 @@ export const createDemoData = async () => {
           ]
         }
       ],
-      createdBy: superAdmin._id
+      createdBy: demoAdmin._id
     });
 
     console.log('Demo organization created successfully:', demoOrg.name);
-
-    // ✅ Create demo admin
-    const demoAdmin = await User.create({
-      email: 'admin@demo.com',
-      password: 'Admin123!',
-      firstName: 'Demo',
-      lastName: 'Admin',
-      role: 'ADMIN',
-      organization: demoOrg._id,
-      permissions: [],
-      createdBy: superAdmin._id
-    });
 
     // ✅ Create demo org admin
     const demoOrgAdmin = await User.create({

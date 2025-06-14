@@ -1,9 +1,8 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Separator } from "./ui/separator";
 import { ScrollArea } from "./ui/scroll-area";
 import {
   Home,
@@ -22,6 +21,8 @@ import {
   Target,
   Package,
   Mail,
+  User,
+  LogOut,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
@@ -29,14 +30,23 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 interface SidebarProps {
   className?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
-  const { user, hasPermission, hasRole } = useAuth();
+  const { user, hasPermission, hasRole, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [openSections, setOpenSections] = React.useState<string[]>([
     "promotions",
     "merchandise",
@@ -51,7 +61,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     );
   };
 
-  const navigationItems = [
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  type NavigationChild = {
+    title: string;
+    href?: string;
+    icon: React.ElementType;
+    show: boolean;
+    badge?: string;
+  };
+
+  type NavigationItem = {
+    title: string;
+    href?: string;
+    icon: React.ElementType;
+    show: boolean;
+    badge?: string;
+    section?: string;
+    children?: NavigationChild[];
+  };
+
+  const navigationItems: NavigationItem[] = [
     {
       title: "Dashboard",
       href: "/",
@@ -243,7 +276,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                         </span>
                         {item.badge && (
                           <Badge variant="secondary" className="text-xs">
-                            {item.badge}
+                            {item?.badge}
                           </Badge>
                         )}
                       </div>
@@ -316,21 +349,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           })}
         </nav>
       </ScrollArea>
-
-      {/* Settings */}
-      <div className="border-t p-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-          asChild
-        >
-          <Link to="/settings">
-            <Settings className="h-4 w-4 mr-3" />
-            <span className="text-sm">Settings</span>
-          </Link>
-        </Button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="flex items-center px-4 py-2 cursor-pointer gap-2 hover:bg-accent hover:text-accent-foreground">
+            <Avatar>
+              <AvatarImage src="" />
+              <AvatarFallback>S</AvatarFallback>
+            </Avatar>
+            <span className="text-sm">
+              {user?.firstName + " " + user?.lastName}
+            </span>
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <div className="flex items-center justify-start gap-2 p-2">
+            <div className="flex flex-col space-y-1 leading-none">
+              <p className="font-medium">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="w-[200px] truncate text-sm text-muted-foreground">
+                {user?.email}
+              </p>
+            </div>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate("/profile")}>
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/settings")}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

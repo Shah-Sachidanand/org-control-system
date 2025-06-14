@@ -39,7 +39,7 @@ const userSchema = new Schema<IUser>({
     type: Schema.Types.ObjectId,
     ref: 'Organization',
     required: function (this: IUser) {
-      return this.role !== 'SUPERADMIN';
+      return (this.role !== 'SUPERADMIN' && this.role !== 'ADMIN');
     }
   },
   permissions: [permissionSchema],

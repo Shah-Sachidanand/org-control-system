@@ -179,57 +179,58 @@ export const OrganizationManagement: React.FC = () => {
             Manage organizations and their feature access
           </p>
         </div>
-        {hasRole("SUPERADMIN") && (
-          <Dialog
-            open={isCreateDialogOpen}
-            onOpenChange={setIsCreateDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Organization
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Organization</DialogTitle>
-                <DialogDescription>
-                  Add a new organization to the system
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Organization Name</Label>
-                  <Input
-                    id="name"
-                    value={newOrg.name}
-                    onChange={(e) =>
-                      setNewOrg((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newOrg.description}
-                    onChange={(e) =>
-                      setNewOrg((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateOrganization}>
+        {hasRole("SUPERADMIN") ||
+          (hasRole("ADMIN") && (
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={setIsCreateDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
                   Create Organization
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Organization</DialogTitle>
+                  <DialogDescription>
+                    Add a new organization to the system
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Organization Name</Label>
+                    <Input
+                      id="name"
+                      value={newOrg.name}
+                      onChange={(e) =>
+                        setNewOrg((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newOrg.description}
+                      onChange={(e) =>
+                        setNewOrg((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateOrganization}>
+                    Create Organization
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ))}
       </div>
 
       {/* Organizations List */}

@@ -3,7 +3,6 @@ import User from '../models/User';
 import Organization from '../models/Organization';
 import Invitation from '../models/Invitation';
 import { authenticate, authorize } from '../middleware/auth';
-import { sendInvitationEmail } from '../utils/email';
 import { InviteUserRequest } from '../types';
 
 const router = express.Router();
@@ -89,7 +88,7 @@ router.post('/send-admin', authenticate, authorize('SUPERADMIN'), async (req: an
             email,
             role: 'ADMIN',
             organizationId: null, // Admin doesn't belong to specific org
-            permissions: permissions || [],
+            permissions: permissions ?? [],
             invitedBy: currentUser._id,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
             firstName,

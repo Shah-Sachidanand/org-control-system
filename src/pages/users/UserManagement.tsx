@@ -29,7 +29,15 @@ import {
 } from "../../components/ui/dialog";
 import { Checkbox } from "../../components/ui/checkbox";
 import { toast } from "sonner";
-import { Users, Plus, Edit, Shield, UserCheck, UserX } from "lucide-react";
+import {
+  Users,
+  Plus,
+  Edit,
+  Shield,
+  UserCheck,
+  UserX,
+  Building,
+} from "lucide-react";
 import axios from "axios";
 import { User, UserRole, Feature, Permission } from "../../types";
 import { HttpClient } from "@/lib/axios";
@@ -343,6 +351,14 @@ export const UserManagement: React.FC = () => {
                     <div className="text-sm text-muted-foreground">
                       {user.email}
                     </div>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Building className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{user.organization?.name}</div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">

@@ -131,7 +131,10 @@ router.post('/', authenticate, authorize('ORGADMIN', 'ADMIN', 'SUPERADMIN'), asy
 
 router.get('/', authenticate, authorize('ADMIN', 'SUPERADMIN'), async (req: AuthRequest, res: Response) => {
   try {
-    const users = await User.find({ _id: { $ne: req.user?._id } })
+    const users = await User.find({
+      _id: { $ne: req.user?._id },
+      role: { $ne: 'SUPERADMIN' }
+    })
       .populate('organization', 'name')
       .select('-password');
     res.json({ users });

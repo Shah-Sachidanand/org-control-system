@@ -21,7 +21,10 @@ export const MerchandiseDashboard: React.FC = () => {
       subFeature: "experience",
       icon: Star,
       description: "Manage experience-based merchandise and rewards",
-      route: "/merchandise/experience",
+      route: {
+        create: "/merchandise/add?type=experience",
+        view: "/merchandise/view?type=experience",
+      },
       color: "text-yellow-600",
     },
     {
@@ -29,7 +32,10 @@ export const MerchandiseDashboard: React.FC = () => {
       subFeature: "loaded_value",
       icon: CreditCard,
       description: "Handle value-loaded merchandise and gift cards",
-      route: "/merchandise/loaded-value",
+      route: {
+        create: "/merchandise/add?type=loaded_value",
+        view: "/merchandise/view?type=loaded_value",
+      },
       color: "text-green-600",
     },
     {
@@ -37,7 +43,10 @@ export const MerchandiseDashboard: React.FC = () => {
       subFeature: "autograph",
       icon: PenTool,
       description: "Manage autographed merchandise and collectibles",
-      route: "/merchandise/autographs",
+      route: {
+        create: "/merchandise/add?type=autograph",
+        view: "/merchandise/view?type=autograph",
+      },
       color: "text-purple-600",
     },
     {
@@ -45,7 +54,10 @@ export const MerchandiseDashboard: React.FC = () => {
       subFeature: "merch_level",
       icon: Trophy,
       description: "Configure tiered merchandise and level-based rewards",
-      route: "/merchandise/levels",
+      route: {
+        create: "/merchandise/add?type=levels",
+        view: "/merchandise/view?type=levels",
+      },
       color: "text-blue-600",
     },
   ];
@@ -158,12 +170,12 @@ export const MerchandiseDashboard: React.FC = () => {
                   <div className="flex gap-2">
                     {hasAccess && (
                       <Button variant="outline" size="sm" asChild>
-                        <Link to={type.route}>View</Link>
+                        <Link to={type.route.view}>View</Link>
                       </Button>
                     )}
                     {canWrite && (
                       <Button size="sm" asChild>
-                        <Link to={`${type.route}/create`}>Manage</Link>
+                        <Link to={`${type.route.create}`}>Manage</Link>
                       </Button>
                     )}
                   </div>
