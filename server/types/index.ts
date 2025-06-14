@@ -37,6 +37,7 @@ export interface IFeature extends Document {
   subFeatures: ISubFeature[];
   requiredRole: UserRole;
   isSystemFeature: boolean;
+  status: 'pending' | 'in_progress' | 'done';
 }
 
 export interface ISubFeature {
@@ -72,6 +73,8 @@ export interface IInvitation extends Document {
   status: 'pending' | 'accepted' | 'expired';
   expiresAt: Date;
   acceptedAt?: Date;
+  firstName?: string; // For admin invitations
+  lastName?: string;  // For admin invitations
 }
 
 export interface IPromotion extends Document {

@@ -38,4 +38,17 @@ router.put('/:id', authenticate, authorize('SUPERADMIN'), async (req: any, res: 
   }
 });
 
+// Delete feature (SUPERADMIN only)
+router.delete('/:id', authenticate, authorize('SUPERADMIN'), async (req: any, res: Response) => {
+  try {
+    const feature = await Feature.findByIdAndDelete(req.params.id);
+    if (!feature) {
+      return res.status(404).json({ error: 'Feature not found' });
+    }
+    res.json({ message: 'Feature deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

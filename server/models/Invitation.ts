@@ -16,7 +16,9 @@ const invitationSchema = new Schema<IInvitation>({
     organizationId: {
         type: Schema.Types.ObjectId,
         ref: 'Organization',
-        required: true
+        required: function (this: IInvitation) {
+            return this.role !== 'ADMIN' && this.role !== 'SUPERADMIN';
+        }
     },
     permissions: [{
         feature: String,
@@ -43,7 +45,9 @@ const invitationSchema = new Schema<IInvitation>({
         type: Date,
         required: true
     },
-    acceptedAt: Date
+    acceptedAt: Date,
+    firstName: String, // For admin invitations
+    lastName: String   // For admin invitations
 }, {
     timestamps: true
 });

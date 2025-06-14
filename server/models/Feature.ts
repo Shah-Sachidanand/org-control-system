@@ -34,6 +34,11 @@ const featureSchema = new Schema<IFeature>({
   isSystemFeature: {
     type: Boolean,
     default: false
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'done'],
+    default: 'done'
   }
 }, {
   timestamps: true

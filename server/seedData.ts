@@ -49,7 +49,8 @@ export const seedFeatures = async () => {
             actions: ['read', 'write', 'delete', 'manage']
           }
         ],
-        requiredRole: 'ORGADMIN'
+        requiredRole: 'ORGADMIN',
+        status: 'done'
       },
       {
         name: 'merchandise',
@@ -81,7 +82,8 @@ export const seedFeatures = async () => {
             actions: ['read', 'write', 'delete', 'manage']
           }
         ],
-        requiredRole: 'ORGADMIN'
+        requiredRole: 'ORGADMIN',
+        status: 'done'
       },
       {
         name: 'user_management',
@@ -107,7 +109,8 @@ export const seedFeatures = async () => {
             actions: ['read', 'write', 'manage']
           }
         ],
-        requiredRole: 'ORGADMIN'
+        requiredRole: 'ORGADMIN',
+        status: 'done'
       },
       {
         name: 'organization_management',
@@ -133,7 +136,8 @@ export const seedFeatures = async () => {
             actions: ['read', 'write', 'manage']
           }
         ],
-        requiredRole: 'ADMIN'
+        requiredRole: 'ADMIN',
+        status: 'done'
       }
     ];
 
@@ -176,6 +180,7 @@ export const createSuperAdmin = async () => {
   }
 };
 
+// Create demo organization and users
 export const createDemoData = async () => {
   try {
     const existingOrg = await Organization.findOne({ slug: 'demo-org' });
@@ -296,8 +301,7 @@ export const createDemoData = async () => {
 
     // ✅ Logs
     console.log('Demo data created successfully');
-    console.log('Credentials:');
-    console.log('- SuperAdmin: superadmin@system.com / SuperAdmin123!');
+    console.log('Demo credentials:');
     console.log('- Admin: admin@demo.com / Admin123!');
     console.log('- Org Admin: orgadmin@demo.com / OrgAdmin123!');
     console.log('- User: user@demo.com / User123!');

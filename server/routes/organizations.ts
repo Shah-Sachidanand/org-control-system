@@ -6,23 +6,28 @@ import { AuthRequest } from '../types';
 const router = express.Router();
 
 // Get all organizations (ADMIN and SUPERADMIN only)
-router.get('/', authenticate, authorize('ADMIN', 'SUPERADMIN'), async (req: Request, res: Response) => {
+router.get('/', authenticate, authorize('ADMIN', 'SUPERADMIN'), async (req: any, res: Response) => {
   try {
-    const organizations = await Organization.find()
+    const currentUser = req.user;
+    let filter = {};
+
+    // ADMIN can only see organizations they created
+    if (currentUser.role === 'ADMIN') {
+      filter = { createdBy: currentUser._id };
+    }
+    // SUPERADMIN can see all organizations
+
+    const organizations = await Organization.find(filter)
       .populate('createdBy', 'firstName lastName email');
 
     res.json({ organizations });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: 'An unknown error occurred' });
-    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 // Create organization
-router.post('/', authenticate, authorize('ADMIN', 'SUPERADMIN'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('ADMIN', 'SUPERADMIN'), async (req: any, res: Response) => {
   try {
     const { name, description, features } = req.body;
 
@@ -62,11 +67,18 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // Check if user has access to this organization
-    if (req?.user?.role !== 'SUPERADMIN' && req?.user?.role !== 'ADMIN') {
-      if (!req?.user?.organization || req?.user?.organization?._id !== req.params.id) {
+    if (req?.user?.role === 'ADMIN') {
+      // ADMIN can only access organizations they created
+      if (organization?.createdBy?.toString() !== req?.user?._id.toString()) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else if (req?.user?.role === 'ORGADMIN') {
+      // ORGADMIN can only access their own organization
+      if (!req.user.organization || req.user.organization._id.toString() !== req.params.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
     }
+    // SUPERADMIN has access to all organizations
 
     res.json({ organization });
   } catch (error: unknown) {
@@ -79,7 +91,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // Update organization features
-router.put('/:id/features', authenticate, authorize('ORGADMIN', 'ADMIN', 'SUPERADMIN'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/features', authenticate, authorize('ORGADMIN', 'ADMIN', 'SUPERADMIN'), async (req: any, res: Response) => {
   try {
     const { features } = req.body;
 
@@ -89,11 +101,18 @@ router.put('/:id/features', authenticate, authorize('ORGADMIN', 'ADMIN', 'SUPERA
     }
 
     // Check permissions
-    if (req?.user?.role === 'ORGADMIN') {
-      if (!req?.user?.organization || req?.user?.organization._id.toString() !== req.params.id) {
+    if (req?.user?.role === 'ADMIN') {
+      // ADMIN can only update organizations they created
+      if (organization.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else if (req.user.role === 'ORGADMIN') {
+      // ORGADMIN can only update their own organization
+      if (!req.user.organization || req.user.organization._id.toString() !== req.params.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
     }
+    // SUPERADMIN can update any organization
 
     organization.features = features;
     await organization.save();
