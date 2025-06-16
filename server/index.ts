@@ -10,6 +10,10 @@ import permissionRoutes from './routes/permissions';
 import invitationRoutes from './routes/invitations';
 import promotionRoutes from './routes/promotions';
 import merchandiseRoutes from './routes/merchandise';
+import partnerRoutes from './routes/partners';
+import profileRoutes from './routes/profile';
+import settingsRoutes from './routes/settings';
+import notificationRoutes from './routes/notifications';
 import { initializeData } from './seedData';
 
 dotenv.config();
@@ -22,7 +26,7 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/org-access-control')
+mongoose.connect(process.env.MONGODB_URI ?? 'mongodb://localhost:27017/org-access-control')
   .then(async () => {
     console.log('MongoDB connected');
     // Initialize seed data
@@ -39,6 +43,10 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/merchandise', merchandiseRoutes);
+app.use('/api/partners', partnerRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'Server is running!' });

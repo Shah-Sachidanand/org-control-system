@@ -23,6 +23,10 @@ import { InviteUser } from "./pages/invitations/InviteUser";
 import { InviteAdmin } from "./pages/admin/InviteAdmin";
 import { OrganizationManagement } from "./pages/organizations/OrganizationManagement";
 import { FeatureManagement } from "./pages/features/FeatureManagement";
+import { PartnerManagement } from "./pages/partners/PartnerManagement";
+import { Profile } from "./pages/profile/Profile";
+import { Settings } from "./pages/settings/Settings";
+import { Notifications } from "./pages/notifications/Notifications";
 import { Toaster } from "./components/ui/sonner";
 
 const AppContent: React.FC = () => {
@@ -70,12 +74,52 @@ const AppContent: React.FC = () => {
               }
             />
 
+            {/* Profile & Settings */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Feature Management Routes */}
             <Route
               path="/features"
               element={
                 <ProtectedRoute requireAnyRole={["SUPERADMIN"]}>
                   <FeatureManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Partner Management */}
+            <Route
+              path="/partners"
+              element={
+                <ProtectedRoute
+                  requireAnyRole={["ORGADMIN", "ADMIN", "SUPERADMIN"]}
+                >
+                  <PartnerManagement />
                 </ProtectedRoute>
               }
             />

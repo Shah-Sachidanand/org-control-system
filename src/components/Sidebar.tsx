@@ -21,6 +21,7 @@ import {
   Target,
   Package,
   Mail,
+  Handshake,
   User,
   LogOut,
 } from "lucide-react";
@@ -104,6 +105,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       icon: Layers,
       show: hasRole("SUPERADMIN"),
       badge: "System",
+    },
+    {
+      title: "Partners",
+      href: "/partners",
+      icon: Handshake,
+      show:
+        hasPermission("promotion", "read") ||
+        hasRole("ORGADMIN") ||
+        hasRole("ADMIN") ||
+        hasRole("SUPERADMIN"),
+      badge: "Sponsors",
     },
     {
       title: "Promotions",
@@ -276,7 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                         </span>
                         {item.badge && (
                           <Badge variant="secondary" className="text-xs">
-                            {item?.badge}
+                            {item.badge}
                           </Badge>
                         )}
                       </div>

@@ -36,6 +36,7 @@ export interface Feature {
   subFeatures: SubFeature[];
   requiredRole: UserRole;
   isSystemFeature: boolean;
+  status: FeatureStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +86,7 @@ export interface Promotion {
   status: PromotionStatus;
   startDate: string;
   endDate: string;
+  partnerId?: string;
   targetAudience: {
     ageRange?: {
       min: number;
@@ -159,6 +161,57 @@ export interface Merchandise {
   updatedAt: string;
 }
 
+export interface Partner {
+  _id: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  contactInfo: {
+    email?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zipCode?: string;
+    };
+  };
+  status: PartnerStatus;
+  organizationId: string;
+  isDefault: boolean;
+  sponsorshipDetails: {
+    budget?: number;
+    currency?: string;
+    contractStartDate?: string;
+    contractEndDate?: string;
+    terms?: string;
+  };
+  createdBy: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  status: NotificationStatus;
+  userId: string;
+  organizationId?: string;
+  relatedId?: string;
+  relatedType?: string;
+  actionUrl?: string;
+  metadata: any;
+  expiresAt?: string;
+  readAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UserRole = 'USER' | 'ORGADMIN' | 'ADMIN' | 'SUPERADMIN';
 
 export type PermissionAction = 'read' | 'write' | 'delete' | 'manage';
@@ -170,6 +223,14 @@ export type PromotionStatus = 'draft' | 'active' | 'paused' | 'completed' | 'exp
 export type MerchandiseType = 'experience' | 'loaded_value' | 'autograph' | 'merch_level';
 
 export type MerchandiseStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+
+export type PartnerStatus = 'active' | 'inactive' | 'pending';
+
+export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'invitation' | 'promotion' | 'system';
+
+export type NotificationStatus = 'unread' | 'read' | 'archived';
+
+export type FeatureStatus = 'pending' | 'in_progress' | 'done';
 
 export interface LoginRequest {
   email: string;
@@ -218,6 +279,7 @@ export interface CreatePromotionRequest {
   type: PromotionType;
   startDate: Date;
   endDate: Date;
+  partnerId?: string;
   targetAudience?: {
     ageRange?: { min: number; max: number };
     location?: string[];

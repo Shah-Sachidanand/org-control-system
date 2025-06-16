@@ -12,6 +12,7 @@ export interface IUser extends Document {
   permissions: IPermission[];
   isActive: boolean;
   createdBy?: string;
+  settings?: IUserSettings;
   comparePassword(password: string): Promise<boolean>;
 }
 
@@ -21,10 +22,7 @@ export interface IOrganization extends Document {
   slug: string;
   description?: string;
   features: IOrganizationFeature[];
-  settings: {
-    maxUsers: number;
-    allowedFeatures: string[];
-  };
+  settings: IOrganizationSettings;
   createdBy: Schema.Types.ObjectId;
   isActive: boolean;
 }
@@ -37,7 +35,7 @@ export interface IFeature extends Document {
   subFeatures: ISubFeature[];
   requiredRole: UserRole;
   isSystemFeature: boolean;
-  status: 'pending' | 'in_progress' | 'done';
+  status: FeatureStatus;
 }
 
 export interface ISubFeature {
@@ -73,8 +71,8 @@ export interface IInvitation extends Document {
   status: 'pending' | 'accepted' | 'expired';
   expiresAt: Date;
   acceptedAt?: Date;
-  firstName?: string; // For admin invitations
-  lastName?: string;  // For admin invitations
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface IPromotion extends Document {
@@ -85,6 +83,7 @@ export interface IPromotion extends Document {
   status: PromotionStatus;
   startDate: Date;
   endDate: Date;
+  partnerId: string;
   targetAudience: {
     ageRange?: {
       min: number;
@@ -155,6 +154,96 @@ export interface IMerchandise extends Document {
   updatedBy?: string;
 }
 
+export interface IPartner extends Document {
+  _id: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  contactInfo: {
+    email?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zipCode?: string;
+    };
+  };
+  status: PartnerStatus;
+  organizationId: Schema.Types.ObjectId;
+  isDefault: boolean;
+  sponsorshipDetails: {
+    budget?: number;
+    currency?: string;
+    contractStartDate?: Date;
+    contractEndDate?: Date;
+    terms?: string;
+  };
+  createdBy: Schema.Types.ObjectId;
+  updatedBy?: string;
+}
+
+export interface INotification extends Document {
+  _id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  status: NotificationStatus;
+  userId: Schema.Types.ObjectId;
+  organizationId?: string;
+  relatedId?: string;
+  relatedType?: string;
+  actionUrl?: string;
+  metadata: any;
+  expiresAt?: Date;
+  readAt?: Date;
+}
+
+export interface IUserSettings {
+  notifications: {
+    email: boolean;
+    push: boolean;
+    promotions: boolean;
+    invitations: boolean;
+    system: boolean;
+  };
+  privacy: {
+    profileVisible: boolean;
+    activityVisible: boolean;
+  };
+  preferences: {
+    theme: 'light' | 'dark';
+    language: string;
+    timezone: string;
+  };
+}
+
+export interface IOrganizationSettings {
+  maxUsers: number;
+  allowedFeatures: string[];
+  branding: {
+    logo?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+  };
+  notifications: {
+    enableEmail: boolean;
+    enablePush: boolean;
+  };
+  security: {
+    passwordPolicy: {
+      minLength: number;
+      requireUppercase: boolean;
+      requireLowercase: boolean;
+      requireNumbers: boolean;
+      requireSymbols: boolean;
+    };
+    sessionTimeout: number;
+  };
+}
+
 export type UserRole = 'USER' | 'ORGADMIN' | 'ADMIN' | 'SUPERADMIN';
 
 export type PermissionAction = 'read' | 'write' | 'delete' | 'manage';
@@ -166,6 +255,14 @@ export type PromotionStatus = 'draft' | 'active' | 'paused' | 'completed' | 'exp
 export type MerchandiseType = 'experience' | 'loaded_value' | 'autograph' | 'merch_level';
 
 export type MerchandiseStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+
+export type PartnerStatus = 'active' | 'inactive' | 'pending';
+
+export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'invitation' | 'promotion' | 'system';
+
+export type NotificationStatus = 'unread' | 'read' | 'archived';
+
+export type FeatureStatus = 'pending' | 'in_progress' | 'done';
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -208,6 +305,7 @@ export interface CreatePromotionRequest {
   type: PromotionType;
   startDate: Date;
   endDate: Date;
+  partnerId?: string;
   targetAudience?: {
     ageRange?: { min: number; max: number };
     location?: string[];
@@ -269,4 +367,58 @@ export interface CreateMerchandiseRequest {
 
 export interface UpdateMerchandiseRequest extends Partial<CreateMerchandiseRequest> {
   status?: MerchandiseStatus;
+}
+
+export interface CreatePartnerRequest {
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  contactInfo?: {
+    email?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zipCode?: string;
+    };
+  };
+  organizationId?: string;
+  sponsorshipDetails?: {
+    budget?: number;
+    currency?: string;
+    contractStartDate?: Date;
+    contractEndDate?: Date;
+    terms?: string;
+  };
+}
+
+export interface UpdatePartnerRequest extends Partial<CreatePartnerRequest> {
+  status?: PartnerStatus;
+}
+
+export interface CreateNotificationRequest {
+  title: string;
+  message: string;
+  type?: NotificationType;
+  userId: string;
+  organizationId?: string;
+  relatedId?: string;
+  relatedType?: string;
+  actionUrl?: string;
+  metadata?: any;
+  expiresAt?: Date;
+}
+
+export interface UpdateProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }

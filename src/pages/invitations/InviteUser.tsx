@@ -20,20 +20,35 @@ import {
 import { Checkbox } from "../../components/ui/checkbox";
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
-import { UserPlus, Mail, CheckCircle, Clock, XCircle } from "lucide-react";
+import {
+  UserPlus,
+  Mail,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Building,
+} from "lucide-react";
 import axios from "axios";
-import { UserRole, Feature, Permission, Invitation } from "../../types";
+import {
+  UserRole,
+  Feature,
+  Permission,
+  Invitation,
+  Organization,
+} from "../../types";
 import { HttpClient } from "@/lib/axios";
 
 export const InviteUser: React.FC = () => {
-  const { user: currentUser, canManageRole } = useAuth();
+  const { user: currentUser, canManageRole, hasRole } = useAuth();
   const [features, setFeatures] = useState<Feature[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [inviteForm, setInviteForm] = useState({
     email: "",
     role: "USER" as UserRole,
+    organizationId: "",
   });
 
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>(
@@ -42,8 +57,21 @@ export const InviteUser: React.FC = () => {
 
   useEffect(() => {
     fetchFeatures();
-    fetchInvitations();
-  }, []);
+    fetchOrganizations();
+    if (currentUser?.organization) {
+      setInviteForm((prev) => ({
+        ...prev,
+        organizationId: currentUser.organization._id,
+      }));
+      fetchInvitations();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (inviteForm.organizationId) {
+      fetchInvitations();
+    }
+  }, [inviteForm.organizationId]);
 
   const fetchFeatures = async () => {
     try {
@@ -51,6 +79,17 @@ export const InviteUser: React.FC = () => {
       setFeatures(response.data.features);
     } catch (error) {
       toast.error("Failed to fetch features");
+    }
+  };
+
+  const fetchOrganizations = async () => {
+    try {
+      if (hasRole("ADMIN") || hasRole("SUPERADMIN")) {
+        const response = await HttpClient.get("/organizations");
+        setOrganizations(response.data.organizations);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch organizations");
     }
   };
 
@@ -68,8 +107,8 @@ export const InviteUser: React.FC = () => {
   };
 
   const handleSendInvitation = async () => {
-    if (!currentUser?.organization) {
-      toast.error("No organization found");
+    if (!inviteForm.organizationId) {
+      toast.error("Please select an organization");
       return;
     }
 
@@ -78,12 +117,12 @@ export const InviteUser: React.FC = () => {
       const response = await HttpClient.post("/invitations/send", {
         email: inviteForm.email,
         role: inviteForm.role,
-        organizationId: currentUser.organization._id,
+        organizationId: inviteForm.organizationId,
         permissions: selectedPermissions,
       });
 
       toast.success("Invitation sent successfully");
-      setInviteForm({ email: "", role: "USER" });
+      setInviteForm((prev) => ({ ...prev, email: "" }));
       setSelectedPermissions([]);
       fetchInvitations();
 
@@ -138,7 +177,6 @@ export const InviteUser: React.FC = () => {
         permission.subFeatures = permission.subFeatures.filter(
           (sf) => sf !== subFeature
         );
-        // Remove action if no sub-features use it
         const hasActionInOtherSubFeatures = features
           .find((f) => f.name === featureName)
           ?.subFeatures.some(
@@ -182,13 +220,31 @@ export const InviteUser: React.FC = () => {
     }
   };
 
+  const getAvailableRoles = () => {
+    const roles: UserRole[] = [];
+    if (canManageRole("USER")) roles.push("USER");
+    if (canManageRole("ORGADMIN")) roles.push("ORGADMIN");
+    return roles;
+  };
+
+  const getAvailableOrganizations = () => {
+    if (hasRole("SUPERADMIN")) {
+      return organizations;
+    } else if (hasRole("ADMIN")) {
+      return organizations.filter((org) => org.createdBy === currentUser?._id);
+    } else if (currentUser?.organization) {
+      return [currentUser.organization];
+    }
+    return [];
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Invite Users</h1>
         <p className="text-muted-foreground">
-          Send invitations to new users to join your organization
+          Send invitations to new users to join organizations
         </p>
       </div>
 
@@ -201,7 +257,7 @@ export const InviteUser: React.FC = () => {
               Send Invitation
             </CardTitle>
             <CardDescription>
-              Invite a new user to join {currentUser?.organization?.name}
+              Invite a new user to join an organization
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -223,6 +279,34 @@ export const InviteUser: React.FC = () => {
               </div>
 
               <div>
+                <Label htmlFor="organization">Organization</Label>
+                <Select
+                  value={inviteForm.organizationId}
+                  onValueChange={(value) =>
+                    setInviteForm((prev) => ({
+                      ...prev,
+                      organizationId: value,
+                    }))
+                  }
+                  disabled={hasRole("ORGADMIN")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableOrganizations()?.map((org) => (
+                      <SelectItem key={org._id} value={org._id}>
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4" />
+                          {org.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={inviteForm.role}
@@ -234,80 +318,81 @@ export const InviteUser: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["USER", "ORGADMIN"] as UserRole[]).map(
-                      (role) =>
-                        canManageRole(role) && (
-                          <SelectItem key={role} value={role}>
-                            {role}
-                          </SelectItem>
-                        )
-                    )}
+                    {getAvailableRoles().map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             {/* Permissions */}
-            <div className="space-y-4">
-              <Label>Permissions</Label>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {features.map((feature) => (
-                  <Card key={feature.name} className="p-4">
-                    <div className="space-y-3">
-                      <div className="font-medium">{feature.displayName}</div>
-                      {feature.subFeatures.map((subFeature) => (
-                        <div key={subFeature.name} className="space-y-2 pl-4">
-                          <div className="font-medium text-sm">
-                            {subFeature.displayName}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {subFeature.actions.map((action) => {
-                              const isChecked =
-                                selectedPermissions
-                                  .find((p) => p.feature === feature.name)
-                                  ?.subFeatures.includes(subFeature.name) &&
-                                selectedPermissions
-                                  .find((p) => p.feature === feature.name)
-                                  ?.actions.includes(action);
+            {inviteForm.organizationId && (
+              <div className="space-y-4">
+                <Label>Permissions</Label>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {features.map((feature) => (
+                    <Card key={feature.name} className="p-4">
+                      <div className="space-y-3">
+                        <div className="font-medium">{feature.displayName}</div>
+                        {feature.subFeatures.map((subFeature) => (
+                          <div key={subFeature.name} className="space-y-2 pl-4">
+                            <div className="font-medium text-sm">
+                              {subFeature.displayName}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {subFeature.actions.map((action) => {
+                                const isChecked =
+                                  selectedPermissions
+                                    .find((p) => p.feature === feature.name)
+                                    ?.subFeatures.includes(subFeature.name) &&
+                                  selectedPermissions
+                                    .find((p) => p.feature === feature.name)
+                                    ?.actions.includes(action);
 
-                              return (
-                                <div
-                                  key={action}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`${feature.name}-${subFeature.name}-${action}`}
-                                    checked={isChecked}
-                                    onCheckedChange={(checked) =>
-                                      updatePermission(
-                                        feature.name,
-                                        subFeature.name,
-                                        action,
-                                        checked as boolean
-                                      )
-                                    }
-                                  />
-                                  <Label
-                                    htmlFor={`${feature.name}-${subFeature.name}-${action}`}
-                                    className="text-xs capitalize"
+                                return (
+                                  <div
+                                    key={action}
+                                    className="flex items-center space-x-2"
                                   >
-                                    {action}
-                                  </Label>
-                                </div>
-                              );
-                            })}
+                                    <Checkbox
+                                      id={`${feature.name}-${subFeature.name}-${action}`}
+                                      checked={isChecked}
+                                      onCheckedChange={(checked) =>
+                                        updatePermission(
+                                          feature.name,
+                                          subFeature.name,
+                                          action,
+                                          checked as boolean
+                                        )
+                                      }
+                                    />
+                                    <Label
+                                      htmlFor={`${feature.name}-${subFeature.name}-${action}`}
+                                      className="text-xs capitalize"
+                                    >
+                                      {action}
+                                    </Label>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                ))}
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <Button
               onClick={handleSendInvitation}
-              disabled={loading || !inviteForm.email}
+              disabled={
+                loading || !inviteForm.email || !inviteForm.organizationId
+              }
               className="w-full"
             >
               <Mail className="mr-2 h-4 w-4" />
@@ -322,6 +407,16 @@ export const InviteUser: React.FC = () => {
             <CardTitle>Recent Invitations</CardTitle>
             <CardDescription>
               Track the status of sent invitations
+              {inviteForm.organizationId && (
+                <span className="block mt-1">
+                  for{" "}
+                  {
+                    getAvailableOrganizations().find(
+                      (org) => org._id === inviteForm.organizationId
+                    )?.name
+                  }
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -363,7 +458,9 @@ export const InviteUser: React.FC = () => {
               ))}
               {invitations.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No invitations sent yet
+                  {inviteForm.organizationId
+                    ? "No invitations sent yet for this organization"
+                    : "Select an organization to view invitations"}
                 </div>
               )}
             </div>
