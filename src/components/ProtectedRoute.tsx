@@ -55,7 +55,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (requiredPermission) {
     const hasAccess = hasPermission(
       requiredPermission.feature,
-      requiredPermission.action || "read",
+      requiredPermission.action ?? "read",
       requiredPermission.subFeature
     );
 

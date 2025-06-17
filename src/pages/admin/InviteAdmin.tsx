@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../contexts/AuthContext";
 import {
   Card,
   CardContent,
@@ -25,7 +24,6 @@ import { Feature, Permission, Invitation } from "../../types";
 import { HttpClient } from "@/lib/axios";
 
 export const InviteAdmin: React.FC = () => {
-  const { user: currentUser } = useAuth();
   const [features, setFeatures] = useState<Feature[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(false);

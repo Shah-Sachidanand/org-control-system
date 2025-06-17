@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
 import {
   Card,
   CardContent,
@@ -22,12 +21,11 @@ import {
 import { Switch } from "../../components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Package } from "lucide-react";
-import axios from "axios";
 import { MerchandiseType } from "../../types";
+import { HttpClient } from "@/lib/axios";
 
 export const AddMerchandise: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const [merchandise, setMerchandise] = useState({
@@ -71,7 +69,7 @@ export const AddMerchandise: React.FC = () => {
     setLoading(true);
 
     try {
-      await axios.post("/api/merchandise", merchandise);
+      await HttpClient.post("/merchandise", merchandise);
       toast.success("Merchandise created successfully");
       navigate("/merchandise");
     } catch (error: any) {

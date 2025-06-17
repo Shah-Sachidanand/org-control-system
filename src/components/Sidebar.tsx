@@ -45,7 +45,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
-  const { user, hasPermission, hasRole, logout } = useAuth();
+  const { user, hasPermission, hasRole, hasFeatureAccess, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [openSections, setOpenSections] = React.useState<string[]>([
@@ -96,44 +96,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       title: "Organizations",
       href: "/organizations",
       icon: Building,
-      show: hasRole("ADMIN") || hasRole("SUPERADMIN"),
+      show: hasFeatureAccess("organization_management", "USER_ROLE"),
       badge: hasRole("SUPERADMIN") ? "All" : "Mine",
     },
     {
       title: "Features",
       href: "/features",
       icon: Layers,
-      show: hasRole("SUPERADMIN"),
+      show: hasFeatureAccess("system_management", "SYSTEM"),
       badge: "System",
     },
     {
       title: "Partners",
       href: "/partners",
       icon: Handshake,
-      show:
-        hasPermission("promotion", "read") ||
-        hasRole("ORGADMIN") ||
-        hasRole("ADMIN") ||
-        hasRole("SUPERADMIN"),
+      show: hasFeatureAccess("partner_management", "ORGANIZATION"),
       badge: "Sponsors",
     },
     {
       title: "Promotions",
       icon: Megaphone,
-      show: hasPermission("promotion", "read"),
+      show: hasFeatureAccess("promotion", "ORGANIZATION"),
       section: "promotions",
       children: [
         {
           title: "Dashboard",
           href: "/promotions",
           icon: Target,
-          show: hasPermission("promotion", "read"),
+          show: hasFeatureAccess("promotion", "ORGANIZATION"),
         },
         {
           title: "View All",
           href: "/promotions/view",
           icon: Eye,
-          show: hasPermission("promotion", "read"),
+          show: hasFeatureAccess("promotion", "ORGANIZATION"),
         },
         {
           title: "Create Campaign",
@@ -146,20 +142,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     {
       title: "Merchandise",
       icon: Gift,
-      show: hasPermission("merchandise", "read"),
+      show: hasFeatureAccess("merchandise", "ORGANIZATION"),
       section: "merchandise",
       children: [
         {
           title: "Dashboard",
           href: "/merchandise",
           icon: Package,
-          show: hasPermission("merchandise", "read"),
+          show: hasFeatureAccess("merchandise", "ORGANIZATION"),
         },
         {
           title: "View Inventory",
           href: "/merchandise/view",
           icon: Eye,
-          show: hasPermission("merchandise", "read"),
+          show: hasFeatureAccess("merchandise", "ORGANIZATION"),
         },
         {
           title: "Add Item",
@@ -173,24 +169,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       title: "Users",
       icon: Users,
       show:
-        hasPermission("user_management", "read") ||
-        ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(user?.role || ""),
+        hasFeatureAccess("org_user_management", "ORGANIZATION") ||
+        hasFeatureAccess("platform_user_management", "USER_ROLE"),
       section: "users",
       children: [
         {
           title: "Manage Users",
           href: "/users",
           icon: Users,
-          show: hasPermission("user_management", "read"),
+          show:
+            hasFeatureAccess("org_user_management", "ORGANIZATION") ||
+            hasFeatureAccess("platform_user_management", "USER_ROLE"),
         },
         {
           title: "Invite User",
           href: "/users/invite",
           icon: UserPlus,
           show:
-            hasPermission("user_management", "write") ||
-            hasRole("ADMIN") ||
-            hasRole("SUPERADMIN"),
+            hasPermission("org_user_management", "write") ||
+            hasPermission("platform_user_management", "write"),
         },
         {
           title: "Invite Admin",

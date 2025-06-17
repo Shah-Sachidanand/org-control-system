@@ -36,6 +36,7 @@ export interface Feature {
   subFeatures: SubFeature[];
   requiredRole: UserRole;
   isSystemFeature: boolean;
+  featureLevel: FeatureLevel;
   status: FeatureStatus;
   createdAt: string;
   updatedAt: string;
@@ -71,7 +72,7 @@ export interface Invitation {
   permissions: Permission[];
   invitedBy: string;
   token: string;
-  status: 'pending' | 'accepted' | 'expired';
+  status: "pending" | "accepted" | "expired";
   expiresAt: string;
   acceptedAt?: string;
   createdAt: string;
@@ -106,7 +107,7 @@ export interface Promotion {
   settings: {
     maxRedemptions?: number;
     currentRedemptions: number;
-    discountType?: 'percentage' | 'fixed' | 'free_shipping';
+    discountType?: "percentage" | "fixed" | "free_shipping";
     discountValue?: number;
     minimumPurchase?: number;
     codes?: string[];
@@ -187,6 +188,11 @@ export interface Partner {
     contractStartDate?: string;
     contractEndDate?: string;
     terms?: string;
+    paymentStatus?: PaymentStatus;
+    paymentIntentId?: string;
+    paymentMethod?: string;
+    paidAt?: string;
+    paymentAmount?: number;
   };
   createdBy: string;
   updatedBy?: string;
@@ -212,25 +218,54 @@ export interface Notification {
   updatedAt: string;
 }
 
-export type UserRole = 'USER' | 'ORGADMIN' | 'ADMIN' | 'SUPERADMIN';
+export type UserRole = "USER" | "ORGADMIN" | "ADMIN" | "SUPERADMIN";
 
-export type PermissionAction = 'read' | 'write' | 'delete' | 'manage';
+export type PermissionAction = "read" | "write" | "delete" | "manage";
 
-export type PromotionType = 'email' | 'unique_code' | 'qr_code' | 'video' | 'joining_bonus';
+export type FeatureLevel = "ORGANIZATION" | "USER_ROLE" | "SYSTEM";
 
-export type PromotionStatus = 'draft' | 'active' | 'paused' | 'completed' | 'expired';
+export type PromotionType =
+  | "email"
+  | "unique_code"
+  | "qr_code"
+  | "video"
+  | "joining_bonus";
 
-export type MerchandiseType = 'experience' | 'loaded_value' | 'autograph' | 'merch_level';
+export type PromotionStatus =
+  | "draft"
+  | "active"
+  | "paused"
+  | "completed"
+  | "expired";
 
-export type MerchandiseStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+export type MerchandiseType =
+  | "experience"
+  | "loaded_value"
+  | "autograph"
+  | "merch_level";
 
-export type PartnerStatus = 'active' | 'inactive' | 'pending';
+export type MerchandiseStatus =
+  | "active"
+  | "inactive"
+  | "out_of_stock"
+  | "discontinued";
 
-export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'invitation' | 'promotion' | 'system';
+export type PartnerStatus = "active" | "inactive" | "pending";
 
-export type NotificationStatus = 'unread' | 'read' | 'archived';
+export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
-export type FeatureStatus = 'pending' | 'in_progress' | 'done';
+export type NotificationType =
+  | "info"
+  | "success"
+  | "warning"
+  | "error"
+  | "invitation"
+  | "promotion"
+  | "system";
+
+export type NotificationStatus = "unread" | "read" | "archived";
+
+export type FeatureStatus = "pending" | "in_progress" | "done";
 
 export interface LoginRequest {
   email: string;
@@ -295,14 +330,15 @@ export interface CreatePromotionRequest {
   };
   settings?: {
     maxRedemptions?: number;
-    discountType?: 'percentage' | 'fixed' | 'free_shipping';
+    discountType?: "percentage" | "fixed" | "free_shipping";
     discountValue?: number;
     minimumPurchase?: number;
     codes?: string[];
   };
 }
 
-export interface UpdatePromotionRequest extends Partial<CreatePromotionRequest> {
+export interface UpdatePromotionRequest
+  extends Partial<CreatePromotionRequest> {
   status?: PromotionStatus;
 }
 
@@ -339,6 +375,48 @@ export interface CreateMerchandiseRequest {
   };
 }
 
-export interface UpdateMerchandiseRequest extends Partial<CreateMerchandiseRequest> {
+export interface UpdateMerchandiseRequest
+  extends Partial<CreateMerchandiseRequest> {
   status?: MerchandiseStatus;
+}
+
+export interface CreatePartnerRequest {
+  name: string;
+  description?: string;
+  logo?: string;
+  website?: string;
+  contactInfo?: {
+    email?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zipCode?: string;
+    };
+  };
+  organizationId?: string;
+  sponsorshipDetails?: {
+    budget?: number;
+    currency?: string;
+    contractStartDate?: Date;
+    contractEndDate?: Date;
+    terms?: string;
+  };
+}
+
+export interface UpdatePartnerRequest extends Partial<CreatePartnerRequest> {
+  status?: PartnerStatus;
+}
+
+export interface PaymentIntentRequest {
+  partnerId: string;
+  amount: number;
+  currency?: string;
+}
+
+export interface PaymentConfirmRequest {
+  paymentIntentId: string;
+  paymentMethodId: string;
 }

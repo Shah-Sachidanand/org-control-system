@@ -1,5 +1,5 @@
-import { Request } from 'express';
-import { Document, Schema } from 'mongoose';
+import { Request } from "express";
+import { Document, Schema } from "mongoose";
 
 export interface IUser extends Document {
   _id: string;
@@ -12,6 +12,8 @@ export interface IUser extends Document {
   permissions: IPermission[];
   isActive: boolean;
   createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
   settings?: IUserSettings;
   comparePassword(password: string): Promise<boolean>;
 }
@@ -25,6 +27,8 @@ export interface IOrganization extends Document {
   settings: IOrganizationSettings;
   createdBy: Schema.Types.ObjectId;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IFeature extends Document {
@@ -35,7 +39,10 @@ export interface IFeature extends Document {
   subFeatures: ISubFeature[];
   requiredRole: UserRole;
   isSystemFeature: boolean;
+  featureLevel: FeatureLevel;
   status: FeatureStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ISubFeature {
@@ -68,9 +75,11 @@ export interface IInvitation extends Document {
   permissions: IPermission[];
   invitedBy: Schema.Types.ObjectId;
   token: string;
-  status: 'pending' | 'accepted' | 'expired';
+  status: "pending" | "accepted" | "expired";
   expiresAt: Date;
   acceptedAt?: Date;
+  createdAt: string;
+  updatedAt: string;
   firstName?: string;
   lastName?: string;
 }
@@ -83,7 +92,7 @@ export interface IPromotion extends Document {
   status: PromotionStatus;
   startDate: Date;
   endDate: Date;
-  partnerId: string;
+  partnerId?: string;
   targetAudience: {
     ageRange?: {
       min: number;
@@ -103,7 +112,7 @@ export interface IPromotion extends Document {
   settings: {
     maxRedemptions?: number;
     currentRedemptions: number;
-    discountType?: 'percentage' | 'fixed' | 'free_shipping';
+    discountType?: "percentage" | "fixed" | "free_shipping";
     discountValue?: number;
     minimumPurchase?: number;
     codes?: string[];
@@ -111,6 +120,8 @@ export interface IPromotion extends Document {
   organizationId: Schema.Types.ObjectId;
   createdBy: Schema.Types.ObjectId;
   updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IMerchandise extends Document {
@@ -152,6 +163,8 @@ export interface IMerchandise extends Document {
   organizationId: Schema.Types.ObjectId;
   createdBy: Schema.Types.ObjectId;
   updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IPartner extends Document {
@@ -180,9 +193,16 @@ export interface IPartner extends Document {
     contractStartDate?: Date;
     contractEndDate?: Date;
     terms?: string;
+    paymentStatus?: PaymentStatus;
+    paymentIntentId?: string;
+    paymentMethod?: string;
+    paidAt?: Date;
+    paymentAmount?: number;
   };
   createdBy: Schema.Types.ObjectId;
   updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface INotification extends Document {
@@ -199,6 +219,8 @@ export interface INotification extends Document {
   metadata: any;
   expiresAt?: Date;
   readAt?: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IUserSettings {
@@ -214,7 +236,7 @@ export interface IUserSettings {
     activityVisible: boolean;
   };
   preferences: {
-    theme: 'light' | 'dark';
+    theme: "light" | "dark";
     language: string;
     timezone: string;
   };
@@ -244,26 +266,54 @@ export interface IOrganizationSettings {
   };
 }
 
-export type UserRole = 'USER' | 'ORGADMIN' | 'ADMIN' | 'SUPERADMIN';
+export type UserRole = "USER" | "ORGADMIN" | "ADMIN" | "SUPERADMIN";
 
-export type PermissionAction = 'read' | 'write' | 'delete' | 'manage';
+export type PermissionAction = "read" | "write" | "delete" | "manage";
 
-export type PromotionType = 'email' | 'unique_code' | 'qr_code' | 'video' | 'joining_bonus';
+export type FeatureLevel = "ORGANIZATION" | "USER_ROLE" | "SYSTEM";
 
-export type PromotionStatus = 'draft' | 'active' | 'paused' | 'completed' | 'expired';
+export type PromotionType =
+  | "email"
+  | "unique_code"
+  | "qr_code"
+  | "video"
+  | "joining_bonus";
 
-export type MerchandiseType = 'experience' | 'loaded_value' | 'autograph' | 'merch_level';
+export type PromotionStatus =
+  | "draft"
+  | "active"
+  | "paused"
+  | "completed"
+  | "expired";
 
-export type MerchandiseStatus = 'active' | 'inactive' | 'out_of_stock' | 'discontinued';
+export type MerchandiseType =
+  | "experience"
+  | "loaded_value"
+  | "autograph"
+  | "merch_level";
 
-export type PartnerStatus = 'active' | 'inactive' | 'pending';
+export type MerchandiseStatus =
+  | "active"
+  | "inactive"
+  | "out_of_stock"
+  | "discontinued";
 
-export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'invitation' | 'promotion' | 'system';
+export type PartnerStatus = "active" | "inactive" | "pending";
 
-export type NotificationStatus = 'unread' | 'read' | 'archived';
+export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
-export type FeatureStatus = 'pending' | 'in_progress' | 'done';
+export type NotificationType =
+  | "info"
+  | "success"
+  | "warning"
+  | "error"
+  | "invitation"
+  | "promotion"
+  | "system";
 
+export type NotificationStatus = "unread" | "read" | "archived";
+
+export type FeatureStatus = "pending" | "in_progress" | "done";
 export interface AuthRequest extends Request {
   user?: IUser;
 }
@@ -290,6 +340,16 @@ export interface PermissionCheckRequest {
 
 export interface UpdatePermissionsRequest {
   permissions: IPermission[];
+}
+
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  organizationId?: string;
+  permissions?: IPermission[];
 }
 
 export interface InviteUserRequest {
@@ -321,14 +381,15 @@ export interface CreatePromotionRequest {
   };
   settings?: {
     maxRedemptions?: number;
-    discountType?: 'percentage' | 'fixed' | 'free_shipping';
+    discountType?: "percentage" | "fixed" | "free_shipping";
     discountValue?: number;
     minimumPurchase?: number;
     codes?: string[];
   };
 }
 
-export interface UpdatePromotionRequest extends Partial<CreatePromotionRequest> {
+export interface UpdatePromotionRequest
+  extends Partial<CreatePromotionRequest> {
   status?: PromotionStatus;
 }
 
@@ -365,7 +426,8 @@ export interface CreateMerchandiseRequest {
   };
 }
 
-export interface UpdateMerchandiseRequest extends Partial<CreateMerchandiseRequest> {
+export interface UpdateMerchandiseRequest
+  extends Partial<CreateMerchandiseRequest> {
   status?: MerchandiseStatus;
 }
 
@@ -397,6 +459,17 @@ export interface CreatePartnerRequest {
 
 export interface UpdatePartnerRequest extends Partial<CreatePartnerRequest> {
   status?: PartnerStatus;
+}
+
+export interface PaymentIntentRequest {
+  partnerId: string;
+  amount: number;
+  currency?: string;
+}
+
+export interface PaymentConfirmRequest {
+  paymentIntentId: string;
+  paymentMethodId: string;
 }
 
 export interface CreateNotificationRequest {

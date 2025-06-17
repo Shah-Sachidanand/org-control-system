@@ -22,6 +22,7 @@ interface AuthContextType {
   ) => boolean;
   hasRole: (role: UserRole) => boolean;
   canManageRole: (targetRole: UserRole) => boolean;
+  hasFeatureAccess: (featureName: string, featureLevel?: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,7 +49,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const response = await HttpClient.get(`/auth/me`);
       setUser(response.data.user);
     } catch (error) {
-      console.error("Failed to fetch current user:", error);
       localStorage.removeItem("token");
       setToken(null);
     }
@@ -131,6 +131,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     return roleHierarchy[user.role]?.includes(targetRole) || false;
   };
 
+  const hasFeatureAccess = (
+    featureName: string,
+    featureLevel?: string
+  ): boolean => {
+    if (!user) return false;
+
+    // SUPERADMIN has access to all features
+    if (user.role === "SUPERADMIN") return true;
+
+    // Check based on feature level and user role
+    switch (featureLevel) {
+      case "SYSTEM":
+        return user.role === "ADMIN";
+      case "USER_ROLE":
+        return ["ADMIN", "ORGADMIN"].includes(user.role);
+      case "ORGANIZATION":
+        return ["ORGADMIN", "ADMIN"].includes(user.role);
+      default:
+        // Check specific permission
+        return hasPermission(featureName);
+    }
+  };
+
   const value = {
     user,
     token,
@@ -141,6 +164,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     hasPermission,
     hasRole,
     canManageRole,
+    hasFeatureAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

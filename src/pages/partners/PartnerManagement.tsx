@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { PartnerPayment } from "./PartnerPayment";
 import { toast } from "sonner";
 import {
   Handshake,
@@ -56,9 +57,18 @@ import {
   ChevronRight,
   Building,
   Users,
+  CreditCard,
+  CheckCircle,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
-import { Partner, PartnerStatus, Organization } from "../../types";
 import { HttpClient } from "@/lib/axios";
+import {
+  Partner,
+  PartnerStatus,
+  Organization,
+  PaymentStatus,
+} from "../../types";
 
 interface OrganizationWithPartners extends Organization {
   partners: Partner[];
@@ -74,6 +84,7 @@ export const PartnerManagement: React.FC = () => {
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
 
   const [partnerForm, setPartnerForm] = useState({
@@ -265,6 +276,11 @@ export const PartnerManagement: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
+  const openPaymentDialog = (partner: Partner) => {
+    setSelectedPartner(partner);
+    setIsPaymentDialogOpen(true);
+  };
+
   const resetForm = () => {
     setPartnerForm({
       name: "",
@@ -316,6 +332,32 @@ export const PartnerManagement: React.FC = () => {
     }
   };
 
+  const getPaymentStatusIcon = (status: PaymentStatus) => {
+    switch (status) {
+      case "paid":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "pending":
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "failed":
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getPaymentStatusColor = (status: PaymentStatus) => {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const getTotalPartners = () => {
     return organizationsWithPartners.reduce(
       (total, org) => total + org.partners.length,
@@ -327,6 +369,30 @@ export const PartnerManagement: React.FC = () => {
     return organizationsWithPartners.reduce(
       (total, org) =>
         total + org.partners.filter((p) => p.status === "active").length,
+      0
+    );
+  };
+
+  const getTotalBudget = () => {
+    return organizationsWithPartners.reduce(
+      (total, org) =>
+        total +
+        org.partners.reduce(
+          (orgTotal, partner) =>
+            orgTotal + (partner.sponsorshipDetails.budget || 0),
+          0
+        ),
+      0
+    );
+  };
+
+  const getPaidPartners = () => {
+    return organizationsWithPartners.reduce(
+      (total, org) =>
+        total +
+        org.partners.filter(
+          (p) => p.sponsorshipDetails.paymentStatus === "paid"
+        ).length,
       0
     );
   };
@@ -349,16 +415,16 @@ export const PartnerManagement: React.FC = () => {
           </h1>
           <p className="text-muted-foreground">
             {hasRole("SUPERADMIN")
-              ? "Manage all organization partners across the platform"
+              ? "Manage all organization partners with payment processing"
               : hasRole("ADMIN")
-              ? "Manage partners for your organizations"
-              : `Manage partners for ${currentUser?.organization?.name}`}
+              ? "Manage partners for your organizations with sponsorship payments"
+              : `Manage partners for ${currentUser?.organization?.name} with payment gateway`}
           </p>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Enhanced Stats */}
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Organizations</CardTitle>
@@ -394,24 +460,21 @@ export const PartnerManagement: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Paid Partners</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getPaidPartners()}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              $
-              {organizationsWithPartners
-                .reduce(
-                  (total, org) =>
-                    total +
-                    org.partners.reduce(
-                      (orgTotal, partner) =>
-                        orgTotal + (partner.sponsorshipDetails.budget || 0),
-                      0
-                    ),
-                  0
-                )
-                .toLocaleString()}
+              ${getTotalBudget().toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -422,10 +485,11 @@ export const PartnerManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building className="h-5 w-5" />
-            Organizations & Partners
+            Organizations & Partners with Payment Gateway
           </CardTitle>
           <CardDescription>
-            Expandable view of organizations and their associated partners
+            Expandable view of organizations and their partners with sponsorship
+            payment processing
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -460,6 +524,15 @@ export const PartnerManagement: React.FC = () => {
                             {org.partners.length} partner
                             {org.partners.length !== 1 ? "s" : ""}
                           </Badge>
+                          <Badge variant="outline">
+                            {
+                              org.partners.filter(
+                                (p) =>
+                                  p.sponsorshipDetails.paymentStatus === "paid"
+                              ).length
+                            }{" "}
+                            paid
+                          </Badge>
                           <Badge
                             variant={org.isActive ? "default" : "secondary"}
                           >
@@ -489,6 +562,7 @@ export const PartnerManagement: React.FC = () => {
                               <TableHead>Partner</TableHead>
                               <TableHead>Contact</TableHead>
                               <TableHead>Budget</TableHead>
+                              <TableHead>Payment Status</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Actions</TableHead>
                             </TableRow>
@@ -577,6 +651,23 @@ export const PartnerManagement: React.FC = () => {
                                 </TableCell>
                                 <TableCell>
                                   <Badge
+                                    className={getPaymentStatusColor(
+                                      partner.sponsorshipDetails
+                                        .paymentStatus || "pending"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      {getPaymentStatusIcon(
+                                        partner.sponsorshipDetails
+                                          .paymentStatus || "pending"
+                                      )}
+                                      {partner.sponsorshipDetails
+                                        .paymentStatus || "pending"}
+                                    </div>
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
                                     className={getStatusColor(partner.status)}
                                   >
                                     {partner.status}
@@ -591,6 +682,18 @@ export const PartnerManagement: React.FC = () => {
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
+                                    {partner.sponsorshipDetails
+                                      .paymentStatus !== "paid" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          openPaymentDialog(partner)
+                                        }
+                                      >
+                                        <CreditCard className="h-4 w-4" />
+                                      </Button>
+                                    )}
                                     {!partner.isDefault && (
                                       <Button
                                         variant="outline"
@@ -628,7 +731,7 @@ export const PartnerManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Add New Partner</DialogTitle>
             <DialogDescription>
-              Create a new sponsorship partner for the selected organization
+              Create a new sponsorship partner with payment processing
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
@@ -817,6 +920,19 @@ export const PartnerManagement: React.FC = () => {
                   }
                 />
               </div>
+
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                  <span className="font-medium text-blue-900">
+                    Payment Processing
+                  </span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  After creating the partner, you can process sponsorship
+                  payments through our secure payment gateway.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -891,6 +1007,27 @@ export const PartnerManagement: React.FC = () => {
           <DialogFooter>
             <Button onClick={handleUpdatePartner}>Update Partner</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Process Sponsorship Payment</DialogTitle>
+            <DialogDescription>
+              Secure payment processing for {selectedPartner?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPartner && (
+            <PartnerPayment
+              partner={selectedPartner}
+              onPaymentComplete={() => {
+                setIsPaymentDialogOpen(false);
+                fetchOrganizationsWithPartners();
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

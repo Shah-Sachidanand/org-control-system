@@ -11,6 +11,7 @@ import {
 } from "./ui/dropdown-menu";
 import { User, LogOut, Settings, Bell, Search } from "lucide-react";
 import { Input } from "./ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 export const TopBar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -34,16 +35,21 @@ export const TopBar: React.FC = () => {
       {/* Right side */}
       <div className="flex items-center space-x-4">
         {/* Notifications */}
-        <Button variant="ghost" size="sm">
+        <Button
+          onClick={() => navigate("/notifications")}
+          variant="ghost"
+          size="sm"
+        >
           <Bell className="h-4 w-4" />
         </Button>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <User className="h-4 w-4" />
-            </Button>
+            <Avatar>
+              <AvatarImage src="" />
+              <AvatarFallback>S</AvatarFallback>
+            </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <div className="flex items-center justify-start gap-2 p-2">
