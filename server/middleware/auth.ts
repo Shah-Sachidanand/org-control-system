@@ -143,22 +143,23 @@ export const checkOrganizationFeatureAccess = (featureName: string, subFeatureNa
   };
 };
 
+// NEW: Enhanced organization access control
 export const checkOrganizationAccess = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  const targetOrgId = req.params.orgId || req.body.organizationId || req.query.organizationId;
 
   // SUPERADMIN can access any organization
   if (req.user.role === 'SUPERADMIN') {
     return next();
   }
 
-  const targetOrgId = req.params.orgId || req.body.organizationId || req.query.organizationId;
-
-  // ADMIN can access organizations they created (this would need additional validation)
+  // ADMIN can only access organizations they created
   if (req.user.role === 'ADMIN') {
-    // For now, allow ADMIN to access any organization
-    // In production, you'd check if they created the organization
+    // We need to verify if the admin created this organization
+    // This will be checked in the route handler with additional validation
     return next();
   }
 
@@ -168,6 +169,48 @@ export const checkOrganizationAccess = (req: AuthRequest, res: Response, next: N
   }
 
   return res.status(403).json({ error: 'Access denied to this organization' });
+};
+
+// NEW: Enhanced admin organization validation
+export const checkAdminOrganizationAccess = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // SUPERADMIN bypasses all checks
+  if (req.user.role === 'SUPERADMIN') {
+    return next();
+  }
+
+  // Only ADMIN role needs this validation
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const targetOrgId = req.params.orgId || req.body.organizationId || req.query.organizationId;
+
+  if (!targetOrgId) {
+    return res.status(400).json({ error: 'Organization ID required' });
+  }
+
+  try {
+    // Check if the admin created this organization
+    const organization = await Organization.findOne({
+      _id: targetOrgId,
+      createdBy: req.user._id
+    });
+
+    if (!organization) {
+      return res.status(403).json({ 
+        error: 'Access denied. You can only access organizations you created.' 
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin organization access check error:', error);
+    res.status(500).json({ error: 'Failed to verify organization access' });
+  }
 };
 
 export const checkRoleHierarchy = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -191,16 +234,85 @@ export const checkRoleHierarchy = (req: AuthRequest, res: Response, next: NextFu
   next();
 };
 
-// Combined middleware for comprehensive access control
-export const checkComprehensiveAccess = (
+// NEW: Comprehensive access validation
+export const validateComprehensiveAccess = (
   featureName: string, 
   action: PermissionAction = 'read',
-  subFeatureName?: string
+  subFeatureName?: string,
+  requireOrgAccess: boolean = true
 ) => {
   return [
     authenticate,
     checkFeatureAccess(featureName, action),
     ...(subFeatureName ? [checkSubFeatureAccess(featureName, subFeatureName, action)] : []),
-    checkOrganizationFeatureAccess(featureName, subFeatureName)
+    ...(requireOrgAccess ? [checkOrganizationFeatureAccess(featureName, subFeatureName)] : [])
   ];
+};
+
+// NEW: Organization-specific user access validation
+export const checkUserOrganizationAccess = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // SUPERADMIN can access any user
+  if (req.user.role === 'SUPERADMIN') {
+    return next();
+  }
+
+  const targetUserId = req.params.userId || req.params.id;
+  
+  if (!targetUserId) {
+    return next(); // No specific user target, proceed with general access
+  }
+
+  try {
+    const targetUser = await User.findById(targetUserId).populate('organization');
+    
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // ADMIN can access users in organizations they created
+    if (req.user.role === 'ADMIN') {
+      if (!targetUser.organization) {
+        return res.status(403).json({ error: 'Target user has no organization' });
+      }
+
+      const organization = await Organization.findOne({
+        _id: targetUser.organization._id,
+        createdBy: req.user._id
+      });
+
+      if (!organization) {
+        return res.status(403).json({ 
+          error: 'Access denied. You can only manage users in organizations you created.' 
+        });
+      }
+
+      return next();
+    }
+
+    // ORGADMIN can only access users in their own organization
+    if (req.user.role === 'ORGADMIN') {
+      if (!req.user.organization || !targetUser.organization) {
+        return res.status(403).json({ error: 'Organization access required' });
+      }
+
+      if (req.user.organization._id.toString() !== targetUser.organization._id.toString()) {
+        return res.status(403).json({ 
+          error: 'Access denied. You can only manage users in your organization.' 
+        });
+      }
+
+      return next();
+    }
+
+    // USER cannot access other users
+    return res.status(403).json({ error: 'Insufficient permissions to access user data' });
+
+  } catch (error) {
+    console.error('User organization access check error:', error);
+    res.status(500).json({ error: 'Failed to verify user access' });
+  }
 };
