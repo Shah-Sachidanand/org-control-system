@@ -26,6 +26,8 @@ interface AuthContextType {
   hasOrganizationFeature: (featureName: string, subFeatureName?: string) => boolean;
   canAccessOrganization: (organizationId: string) => boolean;
   getAccessDeniedReason: (feature: string, action?: PermissionAction, subFeature?: string) => string;
+  canManageOrganization: (organizationId: string) => boolean;
+  canCreateUsersInOrganization: (organizationId: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -161,7 +163,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     // SUPERADMIN can access any organization
     if (user.role === "SUPERADMIN") return true;
 
-    // ADMIN can access organizations they created (this would need additional data)
+    // ADMIN can access organizations they created (this would need additional validation on server)
     if (user.role === "ADMIN") {
       // For now, we'll allow ADMIN to access any organization
       // In a real implementation, you'd check if they created the organization
@@ -170,6 +172,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     // ORGADMIN and USER can only access their own organization
     return user.organization?._id === organizationId;
+  };
+
+  const canManageOrganization = (organizationId: string): boolean => {
+    if (!user) return false;
+
+    // SUPERADMIN can manage any organization
+    if (user.role === "SUPERADMIN") return true;
+
+    // ADMIN can manage organizations they created
+    if (user.role === "ADMIN") {
+      // This would need server-side validation to check if they created the organization
+      return true;
+    }
+
+    // ORGADMIN can manage their own organization
+    if (user.role === "ORGADMIN") {
+      return user.organization?._id === organizationId;
+    }
+
+    return false;
+  };
+
+  const canCreateUsersInOrganization = (organizationId: string): boolean => {
+    if (!user) return false;
+
+    // SUPERADMIN can create users in any organization
+    if (user.role === "SUPERADMIN") return true;
+
+    // ADMIN can create users in organizations they created
+    if (user.role === "ADMIN") {
+      // This would need server-side validation
+      return true;
+    }
+
+    // ORGADMIN can create users in their own organization
+    if (user.role === "ORGADMIN") {
+      return user.organization?._id === organizationId;
+    }
+
+    return false;
   };
 
   const hasFeatureAccess = (
@@ -243,6 +285,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     hasOrganizationFeature,
     canAccessOrganization,
     getAccessDeniedReason,
+    canManageOrganization,
+    canCreateUsersInOrganization,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
