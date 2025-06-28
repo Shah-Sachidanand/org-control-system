@@ -264,7 +264,7 @@ export const createDemoData = async () => {
           actions: ['read', 'write', 'manage']
         }
       ],
-      createdBy: superAdmin._id
+      createdBy: superAdmin?._id
     });
 
     const demoAdmin2 = await User.create({
@@ -280,7 +280,7 @@ export const createDemoData = async () => {
           actions: ['read', 'write', 'manage']
         }
       ],
-      createdBy: superAdmin._id
+      createdBy: superAdmin?._id
     });
 
     // Create multiple demo organizations
