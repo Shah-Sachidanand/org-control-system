@@ -18,7 +18,7 @@ router.get(
       const filter: any = {};
 
       if (currentUser.role !== "SUPERADMIN") {
-        filter.organizationId = currentUser.organization._id;
+        filter.organizationId = currentUser.organization?._id;
       }
 
       if (type) filter.type = type;

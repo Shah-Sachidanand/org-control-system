@@ -17,6 +17,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET ?? 'your-secret-key') as { userId: string };
     const user = await User.findById(decoded.userId).populate('organization');
+    
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid token' });
