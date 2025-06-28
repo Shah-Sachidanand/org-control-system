@@ -30,8 +30,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     hasPermission, 
     hasRole, 
     hasFeatureAccess, 
-    hasOrganizationFeature,
-    canAccessOrganization 
+    validateOrganizationFeatureAccess,
+    checkCrossOrganizationAccess,
+    getAccessDeniedReason
   } = useAuth();
 
   if (loading) {
@@ -46,50 +47,62 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />;
   }
 
-  // Check organization access if organizationId is provided
-  if (organizationId && !canAccessOrganization(organizationId)) {
+  // CRITICAL FIX: Enhanced organization access validation
+  if (organizationId && !checkCrossOrganizationAccess(organizationId)) {
+    console.warn(`User ${user.email} attempted to access organization ${organizationId} without permission`);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Check role requirement
+  // Check role requirement with proper hierarchy validation
   if (requiredRole && !hasRole(requiredRole)) {
-    // Check role hierarchy for access
     const roleHierarchy = ["USER", "ORGADMIN", "ADMIN", "SUPERADMIN"];
     const userRoleIndex = roleHierarchy.indexOf(user.role);
     const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
 
     if (userRoleIndex < requiredRoleIndex) {
+      console.warn(`User ${user.email} with role ${user.role} attempted to access ${requiredRole} required resource`);
       return <Navigate to="/unauthorized" replace />;
     }
   }
 
   // Check if user has any of the required roles
   if (requireAnyRole && !requireAnyRole.some((role) => hasRole(role))) {
+    console.warn(`User ${user.email} attempted to access resource requiring roles: ${requireAnyRole.join(', ')}`);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Check permission requirement with organization feature validation
+  // CRITICAL FIX: Enhanced permission requirement validation with organization feature checks
   if (requiredPermission) {
     const { feature, action = "read", subFeature } = requiredPermission;
     
     // First check if user has the permission
     const hasUserPermission = hasPermission(feature, action, subFeature);
     
-    // Then check if the feature is enabled in the organization (for organization-level features)
-    const hasOrgFeature = user.organization ? hasOrganizationFeature(feature, subFeature) : true;
-    
-    // For system-level features, skip organization check
-    const isSystemFeature = featureLevel === "SYSTEM";
-    
-    if (!hasUserPermission || (!isSystemFeature && !hasOrgFeature)) {
+    if (!hasUserPermission) {
+      console.warn(`User ${user.email} lacks permission: ${feature}:${subFeature || 'none'}:${action}`);
       return <Navigate to="/unauthorized" replace />;
+    }
+
+    // CRITICAL: Then check if the feature is enabled in the organization (for organization-level features)
+    const isSystemFeature = featureLevel === "SYSTEM";
+    const isUserRoleFeature = featureLevel === "USER_ROLE";
+    
+    if (!isSystemFeature && !isUserRoleFeature) {
+      const hasOrgFeature = validateOrganizationFeatureAccess(feature, subFeature);
+      
+      if (!hasOrgFeature) {
+        const reason = getAccessDeniedReason(feature, action, subFeature);
+        console.warn(`Organization feature access denied for user ${user.email}: ${reason}`);
+        return <Navigate to="/unauthorized" replace />;
+      }
     }
   }
 
-  // Check feature access with level validation
+  // CRITICAL FIX: Enhanced feature access validation with level-specific checks
   if (featureLevel && requiredPermission) {
     const hasAccess = hasFeatureAccess(requiredPermission.feature, featureLevel);
     if (!hasAccess) {
+      console.warn(`User ${user.email} lacks feature access: ${requiredPermission.feature} at level ${featureLevel}`);
       return <Navigate to="/unauthorized" replace />;
     }
   }

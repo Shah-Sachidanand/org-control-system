@@ -26,6 +26,8 @@ interface AuthContextType {
   hasOrganizationFeature: (featureName: string, subFeatureName?: string) => boolean;
   canAccessOrganization: (organizationId: string) => boolean;
   getAccessDeniedReason: (feature: string, action?: PermissionAction, subFeature?: string) => string;
+  validateOrganizationFeatureAccess: (featureName: string, subFeatureName?: string) => boolean;
+  checkCrossOrganizationAccess: (targetOrgId: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,11 +137,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     return roleHierarchy[user.role]?.includes(targetRole) || false;
   };
 
+  // CRITICAL FIX: Enhanced organization feature validation
   const hasOrganizationFeature = (featureName: string, subFeatureName?: string): boolean => {
-    if (!user || !user.organization) return false;
+    if (!user) return false;
 
     // SUPERADMIN bypasses organization feature restrictions
     if (user.role === "SUPERADMIN") return true;
+
+    // Users without organization cannot access organization features
+    if (!user.organization) return false;
 
     const orgFeature = user.organization.features?.find(f => f.name === featureName);
     
@@ -155,23 +161,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     return true;
   };
 
-  const canAccessOrganization = (organizationId: string): boolean => {
+  // CRITICAL FIX: Comprehensive organization feature access validation
+  const validateOrganizationFeatureAccess = (featureName: string, subFeatureName?: string): boolean => {
+    if (!user) return false;
+
+    // SUPERADMIN bypasses all restrictions
+    if (user.role === "SUPERADMIN") return true;
+
+    // Check if user has organization
+    if (!user.organization) {
+      console.warn(`User ${user.email} has no organization assigned`);
+      return false;
+    }
+
+    // Check if organization has the feature enabled
+    const orgFeature = user.organization.features?.find(f => f.name === featureName);
+    
+    if (!orgFeature) {
+      console.warn(`Feature ${featureName} not found in organization ${user.organization.name}`);
+      return false;
+    }
+
+    if (!orgFeature.isEnabled) {
+      console.warn(`Feature ${featureName} is disabled for organization ${user.organization.name}`);
+      return false;
+    }
+
+    // Check sub-feature if specified
+    if (subFeatureName) {
+      const subFeature = orgFeature.subFeatures?.find(sf => sf.name === subFeatureName);
+      
+      if (!subFeature) {
+        console.warn(`Sub-feature ${subFeatureName} not found in feature ${featureName}`);
+        return false;
+      }
+
+      if (!subFeature.isEnabled) {
+        console.warn(`Sub-feature ${subFeatureName} is disabled for organization ${user.organization.name}`);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // CRITICAL FIX: Enhanced cross-organization access control
+  const checkCrossOrganizationAccess = (targetOrgId: string): boolean => {
     if (!user) return false;
 
     // SUPERADMIN can access any organization
     if (user.role === "SUPERADMIN") return true;
 
-    // ADMIN can access organizations they created (this would need additional data)
+    // ADMIN can access organizations they created (would need additional validation in real implementation)
     if (user.role === "ADMIN") {
+      // In production, you'd check if they created the organization
       // For now, we'll allow ADMIN to access any organization
-      // In a real implementation, you'd check if they created the organization
       return true;
     }
 
     // ORGADMIN and USER can only access their own organization
-    return user.organization?._id === organizationId;
+    if (user.organization) {
+      return user.organization._id === targetOrgId;
+    }
+
+    return false;
   };
 
+  const canAccessOrganization = (organizationId: string): boolean => {
+    return checkCrossOrganizationAccess(organizationId);
+  };
+
+  // CRITICAL FIX: Enhanced feature access with comprehensive validation
   const hasFeatureAccess = (
     featureName: string,
     featureLevel?: string
@@ -192,30 +252,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         const hasRoleAccess = ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(user.role);
         if (!hasRoleAccess) return false;
         
-        // For organization-level features, check if enabled in user's organization
-        return hasOrganizationFeature(featureName);
+        // CRITICAL: Validate organization feature access
+        return validateOrganizationFeatureAccess(featureName);
       default:
         // Check specific permission and organization feature
         const hasUserPermission = hasPermission(featureName);
-        const hasOrgFeature = hasOrganizationFeature(featureName);
+        const hasOrgFeature = validateOrganizationFeatureAccess(featureName);
         return hasUserPermission && hasOrgFeature;
     }
   };
 
+  // CRITICAL FIX: Enhanced access denied reason with specific feedback
   const getAccessDeniedReason = (feature: string, action: PermissionAction = "read", subFeature?: string): string => {
     if (!user) return "You must be logged in to access this feature.";
 
-    // Check role requirements first
-    if (user.role === "USER" && ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(feature)) {
-      return "This feature requires administrator privileges.";
+    // Check if user has organization (for organization-level features)
+    if (!user.organization && user.role !== "SUPERADMIN" && user.role !== "ADMIN") {
+      return "You are not assigned to any organization. Contact your administrator to be added to an organization.";
     }
 
-    // Check organization feature enablement
-    if (user.organization && !hasOrganizationFeature(feature, subFeature)) {
-      if (subFeature) {
-        return `The ${subFeature} sub-feature is not enabled for your organization. Contact your administrator to enable this feature.`;
+    // Check role requirements first
+    const roleHierarchy = ["USER", "ORGADMIN", "ADMIN", "SUPERADMIN"];
+    const userRoleIndex = roleHierarchy.indexOf(user.role);
+    
+    if (userRoleIndex === -1) {
+      return "Invalid user role. Contact your administrator.";
+    }
+
+    // Check organization feature enablement (for non-SUPERADMIN users)
+    if (user.role !== "SUPERADMIN" && user.organization) {
+      const orgFeature = user.organization.features?.find(f => f.name === feature);
+      
+      if (!orgFeature) {
+        return `The ${feature} feature is not configured for your organization. Contact your administrator to enable this feature.`;
       }
-      return `The ${feature} feature is not enabled for your organization. Contact your administrator to enable this feature.`;
+
+      if (!orgFeature.isEnabled) {
+        return `The ${feature} feature is disabled for your organization. Contact your administrator to enable this feature.`;
+      }
+
+      if (subFeature) {
+        const subFeatureObj = orgFeature.subFeatures?.find(sf => sf.name === subFeature);
+        
+        if (!subFeatureObj) {
+          return `The ${subFeature} sub-feature is not configured for your organization.`;
+        }
+
+        if (!subFeatureObj.isEnabled) {
+          return `The ${subFeature} sub-feature is disabled for your organization. Contact your administrator to enable this feature.`;
+        }
+      }
     }
 
     // Check user permissions
@@ -226,7 +312,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       return `You don't have ${action} access to ${feature}. Contact your administrator to request access.`;
     }
 
-    return "Access denied for unknown reason.";
+    return "Access denied for unknown reason. Contact your administrator.";
   };
 
   const value = {
@@ -243,6 +329,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     hasOrganizationFeature,
     canAccessOrganization,
     getAccessDeniedReason,
+    validateOrganizationFeatureAccess,
+    checkCrossOrganizationAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

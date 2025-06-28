@@ -32,6 +32,7 @@ import {
   LogOut,
   AlertTriangle,
   Lock,
+  Info,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
@@ -47,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Alert, AlertDescription } from "./ui/alert";
 
 interface SidebarProps {
   className?: string;
@@ -58,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     hasPermission, 
     hasRole, 
     hasFeatureAccess, 
-    hasOrganizationFeature,
+    validateOrganizationFeatureAccess,
     getAccessDeniedReason,
     logout 
   } = useAuth();
@@ -105,9 +107,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     disabledReason?: string;
   };
 
+  // CRITICAL FIX: Enhanced feature availability checking with comprehensive validation
   const checkFeatureAvailability = (featureName: string, subFeatureName?: string) => {
     const hasUserPermission = hasPermission(featureName, "read", subFeatureName);
-    const hasOrgFeature = hasOrganizationFeature(featureName, subFeatureName);
+    const hasOrgFeature = validateOrganizationFeatureAccess(featureName, subFeatureName);
     const isAvailable = hasUserPermission && hasOrgFeature;
     
     let reason = "";
@@ -328,6 +331,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     return content;
   };
 
+  // CRITICAL FIX: Add organization status indicator
+  const getOrganizationStatus = () => {
+    if (!user) return null;
+
+    if (user.role === "SUPERADMIN") {
+      return { status: "Platform Admin", color: "bg-red-100 text-red-800" };
+    }
+
+    if (user.role === "ADMIN") {
+      return { status: "Platform Admin", color: "bg-purple-100 text-purple-800" };
+    }
+
+    if (!user.organization) {
+      return { status: "No Organization", color: "bg-red-100 text-red-800" };
+    }
+
+    const enabledFeatures = user.organization.features?.filter(f => f.isEnabled).length || 0;
+    const totalFeatures = user.organization.features?.length || 0;
+
+    return {
+      status: `${enabledFeatures}/${totalFeatures} Features`,
+      color: enabledFeatures === totalFeatures ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+    };
+  };
+
+  const orgStatus = getOrganizationStatus();
+
   return (
     <div
       className={cn(
@@ -348,7 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         </Link>
       </div>
 
-      {/* User Info */}
+      {/* User Info with Enhanced Status */}
       <div className="border-b p-4">
         <div className="flex items-center space-x-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -362,14 +392,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
               <Badge variant="outline" className="text-xs">
                 {user?.role}
               </Badge>
-              {user?.organization && (
-                <span className="text-xs text-muted-foreground truncate">
-                  {user.organization.name}
-                </span>
+              {orgStatus && (
+                <Badge className={`text-xs ${orgStatus.color}`}>
+                  {orgStatus.status}
+                </Badge>
               )}
             </div>
           </div>
         </div>
+
+        {/* CRITICAL FIX: Organization status alert */}
+        {user && !user.organization && user.role !== "SUPERADMIN" && user.role !== "ADMIN" && (
+          <Alert className="mt-3">
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              No organization assigned. Contact your administrator.
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Navigation */}
