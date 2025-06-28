@@ -5,6 +5,12 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import {
   Home,
   Building,
   Users,
@@ -24,6 +30,8 @@ import {
   Handshake,
   User,
   LogOut,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
@@ -45,7 +53,15 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
-  const { user, hasPermission, hasRole, hasFeatureAccess, logout } = useAuth();
+  const { 
+    user, 
+    hasPermission, 
+    hasRole, 
+    hasFeatureAccess, 
+    hasOrganizationFeature,
+    getAccessDeniedReason,
+    logout 
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [openSections, setOpenSections] = React.useState<string[]>([
@@ -73,6 +89,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     icon: React.ElementType;
     show: boolean;
     badge?: string;
+    disabled?: boolean;
+    disabledReason?: string;
   };
 
   type NavigationItem = {
@@ -83,6 +101,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     badge?: string;
     section?: string;
     children?: NavigationChild[];
+    disabled?: boolean;
+    disabledReason?: string;
+  };
+
+  const checkFeatureAvailability = (featureName: string, subFeatureName?: string) => {
+    const hasUserPermission = hasPermission(featureName, "read", subFeatureName);
+    const hasOrgFeature = hasOrganizationFeature(featureName, subFeatureName);
+    const isAvailable = hasUserPermission && hasOrgFeature;
+    
+    let reason = "";
+    if (!isAvailable) {
+      reason = getAccessDeniedReason(featureName, "read", subFeatureName);
+    }
+    
+    return { isAvailable, reason };
   };
 
   const navigationItems: NavigationItem[] = [
@@ -112,30 +145,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       icon: Handshake,
       show: hasFeatureAccess("partner_management", "ORGANIZATION"),
       badge: "Sponsors",
+      ...(() => {
+        const { isAvailable, reason } = checkFeatureAvailability("partner_management");
+        return { disabled: !isAvailable, disabledReason: reason };
+      })(),
     },
     {
       title: "Promotions",
       icon: Megaphone,
       show: hasFeatureAccess("promotion", "ORGANIZATION"),
       section: "promotions",
+      ...(() => {
+        const { isAvailable, reason } = checkFeatureAvailability("promotion");
+        return { disabled: !isAvailable, disabledReason: reason };
+      })(),
       children: [
         {
           title: "Dashboard",
           href: "/promotions",
           icon: Target,
           show: hasFeatureAccess("promotion", "ORGANIZATION"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("promotion");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "View All",
           href: "/promotions/view",
           icon: Eye,
           show: hasFeatureAccess("promotion", "ORGANIZATION"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("promotion");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "Create Campaign",
           href: "/promotions/create",
           icon: Plus,
           show: hasPermission("promotion", "write"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("promotion");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
       ],
     },
@@ -144,24 +197,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       icon: Gift,
       show: hasFeatureAccess("merchandise", "ORGANIZATION"),
       section: "merchandise",
+      ...(() => {
+        const { isAvailable, reason } = checkFeatureAvailability("merchandise");
+        return { disabled: !isAvailable, disabledReason: reason };
+      })(),
       children: [
         {
           title: "Dashboard",
           href: "/merchandise",
           icon: Package,
           show: hasFeatureAccess("merchandise", "ORGANIZATION"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("merchandise");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "View Inventory",
           href: "/merchandise/view",
           icon: Eye,
           show: hasFeatureAccess("merchandise", "ORGANIZATION"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("merchandise");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "Add Item",
           href: "/merchandise/add",
           icon: Plus,
           show: hasPermission("merchandise", "write"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("merchandise");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
       ],
     },
@@ -169,8 +238,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       title: "Users",
       icon: Users,
       show:
-        hasFeatureAccess("org_user_management", "ORGANIZATION") ||
-        hasFeatureAccess("platform_user_management", "USER_ROLE"),
+        hasFeatureAccess("user_management", "ORGANIZATION") ||
+        hasFeatureAccess("organization_management", "USER_ROLE"),
       section: "users",
       children: [
         {
@@ -178,16 +247,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           href: "/users",
           icon: Users,
           show:
-            hasFeatureAccess("org_user_management", "ORGANIZATION") ||
-            hasFeatureAccess("platform_user_management", "USER_ROLE"),
+            hasFeatureAccess("user_management", "ORGANIZATION") ||
+            hasFeatureAccess("organization_management", "USER_ROLE"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("user_management");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "Invite User",
           href: "/users/invite",
           icon: UserPlus,
           show:
-            hasPermission("org_user_management", "write") ||
-            hasPermission("platform_user_management", "write"),
+            hasPermission("user_management", "write") ||
+            hasPermission("organization_management", "write"),
+          ...(() => {
+            const { isAvailable, reason } = checkFeatureAvailability("user_management");
+            return { disabled: !isAvailable, disabledReason: reason };
+          })(),
         },
         {
           title: "Invite Admin",
@@ -205,6 +282,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       return location.pathname === "/";
     }
     return location.pathname.startsWith(href);
+  };
+
+  const renderNavigationItem = (item: NavigationItem | NavigationChild) => {
+    const content = (
+      <div className="flex items-center space-x-3">
+        <item.icon className="h-4 w-4" />
+        <span className="text-sm font-medium">{item.title}</span>
+        {item.badge && (
+          <Badge variant="secondary" className="text-xs">
+            {item.badge}
+          </Badge>
+        )}
+        {item.disabled && (
+          <div className="flex items-center">
+            <Lock className="h-3 w-3 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+    );
+
+    if (item.disabled && item.disabledReason) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="opacity-50 cursor-not-allowed">
+                {content}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Feature Disabled</p>
+                  <p className="text-sm text-muted-foreground">{item.disabledReason}</p>
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return content;
   };
 
   return (
@@ -275,30 +396,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                       className={cn(
                         "w-full justify-between px-3 py-2 h-auto",
                         (isOpen || hasActiveChild) &&
-                          "bg-accent text-accent-foreground"
+                          "bg-accent text-accent-foreground",
+                        item.disabled && "opacity-50"
                       )}
+                      disabled={item.disabled}
                     >
-                      <div className="flex items-center space-x-3">
-                        <item.icon className="h-4 w-4" />
-                        <span className="text-sm font-medium">
-                          {item.title}
-                        </span>
-                        {item.badge && (
-                          <Badge variant="secondary" className="text-xs">
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </div>
-                      {isOpen ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
+                      {renderNavigationItem(item)}
+                      {!item.disabled && (
+                        isOpen ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )
                       )}
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-1 pl-6 pt-1">
                     {item.children.map((child) => {
                       if (!child.show || !child.href) return null;
+
+                      if (child.disabled) {
+                        return (
+                          <div key={child.href} className="px-3 py-2">
+                            {renderNavigationItem(child)}
+                          </div>
+                        );
+                      }
 
                       return (
                         <Button
@@ -313,22 +436,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                           )}
                         >
                           <Link to={child.href}>
-                            <child.icon className="h-4 w-4 mr-3" />
-                            <span className="text-sm">{child.title}</span>
-                            {child.badge && (
-                              <Badge
-                                variant="secondary"
-                                className="ml-auto text-xs"
-                              >
-                                {child.badge}
-                              </Badge>
-                            )}
+                            {renderNavigationItem(child)}
                           </Link>
                         </Button>
                       );
                     })}
                   </CollapsibleContent>
                 </Collapsible>
+              );
+            }
+
+            if (item.disabled) {
+              return (
+                <div key={item.title} className="px-3 py-2">
+                  {renderNavigationItem(item)}
+                </div>
               );
             }
 
@@ -345,25 +467,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 )}
               >
                 <Link to={item.href!}>
-                  <item.icon className="h-4 w-4 mr-3" />
-                  <span className="text-sm font-medium">{item.title}</span>
-                  {item.badge && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {item.badge}
-                    </Badge>
-                  )}
+                  {renderNavigationItem(item)}
                 </Link>
               </Button>
             );
           })}
         </nav>
       </ScrollArea>
+
+      {/* User Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <div className="flex items-center px-4 py-2 cursor-pointer gap-2 hover:bg-accent hover:text-accent-foreground">
             <Avatar>
               <AvatarImage src="" />
-              <AvatarFallback>S</AvatarFallback>
+              <AvatarFallback>
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </AvatarFallback>
             </Avatar>
             <span className="text-sm">
               {user?.firstName + " " + user?.lastName}

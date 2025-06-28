@@ -12,6 +12,8 @@ interface ProtectedRouteProps {
     subFeature?: string;
   };
   requireAnyRole?: UserRole[];
+  organizationId?: string;
+  featureLevel?: string;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -19,8 +21,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRole,
   requiredPermission,
   requireAnyRole,
+  organizationId,
+  featureLevel,
 }) => {
-  const { user, loading, hasPermission, hasRole } = useAuth();
+  const { 
+    user, 
+    loading, 
+    hasPermission, 
+    hasRole, 
+    hasFeatureAccess, 
+    hasOrganizationFeature,
+    canAccessOrganization 
+  } = useAuth();
 
   if (loading) {
     return (
@@ -32,6 +44,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check organization access if organizationId is provided
+  if (organizationId && !canAccessOrganization(organizationId)) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   // Check role requirement
@@ -51,14 +68,27 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Check permission requirement
+  // Check permission requirement with organization feature validation
   if (requiredPermission) {
-    const hasAccess = hasPermission(
-      requiredPermission.feature,
-      requiredPermission.action ?? "read",
-      requiredPermission.subFeature
-    );
+    const { feature, action = "read", subFeature } = requiredPermission;
+    
+    // First check if user has the permission
+    const hasUserPermission = hasPermission(feature, action, subFeature);
+    
+    // Then check if the feature is enabled in the organization (for organization-level features)
+    const hasOrgFeature = user.organization ? hasOrganizationFeature(feature, subFeature) : true;
+    
+    // For system-level features, skip organization check
+    const isSystemFeature = featureLevel === "SYSTEM";
+    
+    if (!hasUserPermission || (!isSystemFeature && !hasOrgFeature)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
 
+  // Check feature access with level validation
+  if (featureLevel && requiredPermission) {
+    const hasAccess = hasFeatureAccess(requiredPermission.feature, featureLevel);
     if (!hasAccess) {
       return <Navigate to="/unauthorized" replace />;
     }
