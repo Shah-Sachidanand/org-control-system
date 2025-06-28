@@ -23,9 +23,6 @@ interface AuthContextType {
   hasRole: (role: UserRole) => boolean;
   canManageRole: (targetRole: UserRole) => boolean;
   hasFeatureAccess: (featureName: string, featureLevel?: string) => boolean;
-  hasOrganizationFeature: (featureName: string, subFeatureName?: string) => boolean;
-  canAccessOrganization: (organizationId: string) => boolean;
-  getAccessDeniedReason: (feature: string, action?: PermissionAction, subFeature?: string) => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -103,7 +100,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     // SUPERADMIN has all permissions
     if (user.role === "SUPERADMIN") return true;
 
-    // Check if user has the specific permission
     const permission = user.permissions.find((p) => p.feature === feature);
 
     if (!permission?.actions.includes(action)) {
@@ -135,43 +131,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     return roleHierarchy[user.role]?.includes(targetRole) || false;
   };
 
-  const hasOrganizationFeature = (featureName: string, subFeatureName?: string): boolean => {
-    if (!user || !user.organization) return false;
-
-    // SUPERADMIN bypasses organization feature restrictions
-    if (user.role === "SUPERADMIN") return true;
-
-    const orgFeature = user.organization.features?.find(f => f.name === featureName);
-    
-    if (!orgFeature || !orgFeature.isEnabled) {
-      return false;
-    }
-
-    if (subFeatureName) {
-      const subFeature = orgFeature.subFeatures?.find(sf => sf.name === subFeatureName);
-      return subFeature?.isEnabled || false;
-    }
-
-    return true;
-  };
-
-  const canAccessOrganization = (organizationId: string): boolean => {
-    if (!user) return false;
-
-    // SUPERADMIN can access any organization
-    if (user.role === "SUPERADMIN") return true;
-
-    // ADMIN can access organizations they created (this would need additional data)
-    if (user.role === "ADMIN") {
-      // For now, we'll allow ADMIN to access any organization
-      // In a real implementation, you'd check if they created the organization
-      return true;
-    }
-
-    // ORGADMIN and USER can only access their own organization
-    return user.organization?._id === organizationId;
-  };
-
   const hasFeatureAccess = (
     featureName: string,
     featureLevel?: string
@@ -184,49 +143,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     // Check based on feature level and user role
     switch (featureLevel) {
       case "SYSTEM":
-        return user.role === "SUPERADMIN";
+        return user.role === "ADMIN";
       case "USER_ROLE":
-        return ["ADMIN", "SUPERADMIN"].includes(user.role);
+        return ["ADMIN", "ORGADMIN"].includes(user.role);
       case "ORGANIZATION":
-        // Check if user has role access AND organization has feature enabled
-        const hasRoleAccess = ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(user.role);
-        if (!hasRoleAccess) return false;
-        
-        // For organization-level features, check if enabled in user's organization
-        return hasOrganizationFeature(featureName);
+        return ["ORGADMIN", "ADMIN"].includes(user.role);
       default:
-        // Check specific permission and organization feature
-        const hasUserPermission = hasPermission(featureName);
-        const hasOrgFeature = hasOrganizationFeature(featureName);
-        return hasUserPermission && hasOrgFeature;
+        // Check specific permission
+        return hasPermission(featureName);
     }
-  };
-
-  const getAccessDeniedReason = (feature: string, action: PermissionAction = "read", subFeature?: string): string => {
-    if (!user) return "You must be logged in to access this feature.";
-
-    // Check role requirements first
-    if (user.role === "USER" && ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(feature)) {
-      return "This feature requires administrator privileges.";
-    }
-
-    // Check organization feature enablement
-    if (user.organization && !hasOrganizationFeature(feature, subFeature)) {
-      if (subFeature) {
-        return `The ${subFeature} sub-feature is not enabled for your organization. Contact your administrator to enable this feature.`;
-      }
-      return `The ${feature} feature is not enabled for your organization. Contact your administrator to enable this feature.`;
-    }
-
-    // Check user permissions
-    if (!hasPermission(feature, action, subFeature)) {
-      if (subFeature) {
-        return `You don't have ${action} access to ${subFeature} in ${feature}. Contact your administrator to request access.`;
-      }
-      return `You don't have ${action} access to ${feature}. Contact your administrator to request access.`;
-    }
-
-    return "Access denied for unknown reason.";
   };
 
   const value = {
@@ -240,9 +165,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     hasRole,
     canManageRole,
     hasFeatureAccess,
-    hasOrganizationFeature,
-    canAccessOrganization,
-    getAccessDeniedReason,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
