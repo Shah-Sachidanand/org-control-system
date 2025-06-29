@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Checkbox } from "../../components/ui/checkbox";
+import { Switch } from "../../components/ui/switch";
 import { toast } from "sonner";
 import {
   Users,
@@ -61,6 +62,9 @@ import {
   Mail,
   Phone,
   MapPin,
+  AlertTriangle,
+  Info,
+  UserPlus,
 } from "lucide-react";
 import { User, UserRole, Feature, Permission, Organization } from "../../types";
 import { HttpClient } from "@/lib/axios";
@@ -91,6 +95,7 @@ export const UserManagement: React.FC = () => {
     lastName: "",
     role: "USER" as UserRole,
     organizationId: "",
+    isPlatformLevel: false, // For ADMIN users who don't need organization
   });
 
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -131,6 +136,35 @@ export const UserManagement: React.FC = () => {
             }
           })
         );
+
+        // Add platform-level users (ADMIN, SUPERADMIN without organization)
+        try {
+          const platformUsersResponse = await HttpClient.get("/users/platform");
+          const platformUsers = platformUsersResponse.data.users || [];
+          
+          if (platformUsers.length > 0) {
+            const platformOrg = {
+              _id: "platform",
+              name: "Platform Administration",
+              slug: "platform",
+              description: "Platform-level administrators and system users",
+              features: [],
+              settings: { maxUsers: 0, allowedFeatures: [] },
+              createdBy: "",
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              users: platformUsers,
+              userCount: platformUsers.length,
+              activeUsers: platformUsers.filter((u: User) => u.isActive).length,
+              adminCount: platformUsers.filter((u: User) => u.role === "ADMIN").length,
+            };
+            
+            orgsWithUsers.unshift(platformOrg); // Add at the beginning
+          }
+        } catch (error) {
+          console.log("No platform users found or error fetching them");
+        }
 
         setOrganizationsWithUsers(orgsWithUsers);
       } else if (hasRole("ADMIN")) {
@@ -201,7 +235,13 @@ export const UserManagement: React.FC = () => {
 
   const handleCreateUser = async () => {
     try {
-      await HttpClient.post("/users", newUser);
+      const userData = {
+        ...newUser,
+        // Don't send organizationId for platform-level users
+        organizationId: newUser.isPlatformLevel ? undefined : newUser.organizationId,
+      };
+
+      await HttpClient.post("/users", userData);
 
       toast.success("User created successfully");
       setIsCreateDialogOpen(false);
@@ -212,6 +252,7 @@ export const UserManagement: React.FC = () => {
         lastName: "",
         role: "USER",
         organizationId: "",
+        isPlatformLevel: false,
       });
       fetchUsersWithOrganizations();
     } catch (error: any) {
@@ -347,6 +388,32 @@ export const UserManagement: React.FC = () => {
     return { totalUsers, totalActive, totalAdmins };
   };
 
+  const getAvailableRoles = () => {
+    const roles: UserRole[] = [];
+    
+    if (hasRole("SUPERADMIN")) {
+      // SUPERADMIN can create all roles
+      roles.push("USER", "ORGADMIN", "ADMIN");
+    } else if (hasRole("ADMIN")) {
+      // ADMIN can create ORGADMIN and USER
+      roles.push("USER", "ORGADMIN");
+    } else if (hasRole("ORGADMIN")) {
+      // ORGADMIN can only create USER
+      roles.push("USER");
+    }
+    
+    return roles;
+  };
+
+  const getAvailableOrganizations = () => {
+    // Filter out platform organization for regular organization selection
+    return organizationsWithUsers.filter(org => org._id !== "platform");
+  };
+
+  const isPlatformLevelRole = (role: UserRole) => {
+    return role === "ADMIN" || role === "SUPERADMIN";
+  };
+
   const stats = getTotalStats();
 
   if (loading) {
@@ -365,7 +432,7 @@ export const UserManagement: React.FC = () => {
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
           <p className="text-muted-foreground">
             {hasRole("SUPERADMIN") 
-              ? "Manage all users across the platform"
+              ? "Manage all users across the platform including platform administrators"
               : hasRole("ADMIN")
               ? "Manage users in your organizations"
               : "Manage users in your organization"
@@ -380,113 +447,200 @@ export const UserManagement: React.FC = () => {
                 Add User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Add a new user to an organization
+                  Add a new user to the platform or an organization
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={newUser.firstName}
+                        onChange={(e) =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            firstName: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={newUser.lastName}
+                        onChange={(e) =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            lastName: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="firstName"
-                      value={newUser.firstName}
+                      id="email"
+                      type="email"
+                      value={newUser.email}
                       onChange={(e) =>
-                        setNewUser((prev) => ({
-                          ...prev,
-                          firstName: e.target.value,
-                        }))
+                        setNewUser((prev) => ({ ...prev, email: e.target.value }))
                       }
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="password">Password</Label>
                     <Input
-                      id="lastName"
-                      value={newUser.lastName}
+                      id="password"
+                      type="password"
+                      value={newUser.password}
                       onChange={(e) =>
                         setNewUser((prev) => ({
                           ...prev,
-                          lastName: e.target.value,
+                          password: e.target.value,
                         }))
                       }
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) =>
-                      setNewUser((prev) => ({ ...prev, email: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) =>
-                      setNewUser((prev) => ({
-                        ...prev,
-                        password: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="organization">Organization</Label>
-                  <Select
-                    value={newUser.organizationId}
-                    onValueChange={(value) =>
-                      setNewUser((prev) => ({ ...prev, organizationId: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select organization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {organizationsWithUsers.map((org) => (
-                        <SelectItem key={org._id} value={org._id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={newUser.role}
-                    onValueChange={(value: UserRole) =>
-                      setNewUser((prev) => ({ ...prev, role: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(["USER", "ORGADMIN"] as UserRole[]).map(
-                        (role) =>
-                          canManageRole(role) && (
-                            <SelectItem key={role} value={role}>
+
+                {/* Role Selection */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Select
+                      value={newUser.role}
+                      onValueChange={(value: UserRole) => {
+                        setNewUser((prev) => ({ 
+                          ...prev, 
+                          role: value,
+                          isPlatformLevel: isPlatformLevelRole(value),
+                          organizationId: isPlatformLevelRole(value) ? "" : prev.organizationId
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableRoles().map((role) => (
+                          <SelectItem key={role} value={role}>
+                            <div className="flex items-center gap-2">
+                              {getRoleIcon(role)}
                               {role}
-                            </SelectItem>
-                          )
+                              {isPlatformLevelRole(role) && (
+                                <Badge variant="outline" className="text-xs">
+                                  Platform
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Platform Level Toggle for SUPERADMIN */}
+                  {hasRole("SUPERADMIN") && (newUser.role === "ADMIN") && (
+                    <div className="flex items-center space-x-2 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <Info className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
+                        <Label htmlFor="isPlatformLevel" className="text-sm font-medium">
+                          Platform Administrator
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Platform administrators can create and manage organizations
+                        </p>
+                      </div>
+                      <Switch
+                        id="isPlatformLevel"
+                        checked={newUser.isPlatformLevel}
+                        onCheckedChange={(checked) =>
+                          setNewUser((prev) => ({ 
+                            ...prev, 
+                            isPlatformLevel: checked,
+                            organizationId: checked ? "" : prev.organizationId
+                          }))
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Organization Selection */}
+                {!newUser.isPlatformLevel && !isPlatformLevelRole(newUser.role) && (
+                  <div>
+                    <Label htmlFor="organization">Organization</Label>
+                    <Select
+                      value={newUser.organizationId}
+                      onValueChange={(value) =>
+                        setNewUser((prev) => ({ ...prev, organizationId: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select organization" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableOrganizations().map((org) => (
+                          <SelectItem key={org._id} value={org._id}>
+                            <div className="flex items-center gap-2">
+                              <Building className="h-4 w-4" />
+                              {org.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Role Information */}
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium">Role Capabilities:</p>
+                      {newUser.role === "ADMIN" && (
+                        <p className="text-muted-foreground">
+                          Can create and manage organizations, invite organization administrators
+                        </p>
                       )}
-                    </SelectContent>
-                  </Select>
+                      {newUser.role === "ORGADMIN" && (
+                        <p className="text-muted-foreground">
+                          Can manage users within their organization, create campaigns and manage merchandise
+                        </p>
+                      )}
+                      {newUser.role === "USER" && (
+                        <p className="text-muted-foreground">
+                          Access to features based on assigned permissions
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateUser}>Create User</Button>
+                <Button 
+                  onClick={handleCreateUser}
+                  disabled={
+                    !newUser.email || 
+                    !newUser.firstName || 
+                    !newUser.lastName || 
+                    !newUser.password ||
+                    (!newUser.isPlatformLevel && !isPlatformLevelRole(newUser.role) && !newUser.organizationId)
+                  }
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Create User
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -502,6 +656,9 @@ export const UserManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{organizationsWithUsers.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {organizationsWithUsers.filter(org => org._id === "platform").length > 0 ? "Including platform" : "Active organizations"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -511,6 +668,9 @@ export const UserManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Across all organizations
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -520,6 +680,9 @@ export const UserManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalActive}</div>
+            <p className="text-xs text-muted-foreground">
+              Currently active
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -529,6 +692,9 @@ export const UserManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+            <p className="text-xs text-muted-foreground">
+              Organization admins
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -582,9 +748,10 @@ export const UserManagement: React.FC = () => {
           <div className="space-y-4">
             {organizationsWithUsers.map((org) => {
               const filteredUsers = getFilteredUsers(org.users);
+              const isPlatformOrg = org._id === "platform";
               
               return (
-                <Card key={org._id} className="border-l-4 border-l-primary">
+                <Card key={org._id} className={`border-l-4 ${isPlatformOrg ? 'border-l-purple-500' : 'border-l-primary'}`}>
                   <Collapsible
                     open={expandedOrgs.has(org._id)}
                     onOpenChange={() => toggleOrgExpansion(org._id)}
@@ -599,10 +766,21 @@ export const UserManagement: React.FC = () => {
                               ) : (
                                 <ChevronRight className="h-4 w-4" />
                               )}
-                              <Building className="h-5 w-5 text-primary" />
+                              {isPlatformOrg ? (
+                                <Crown className="h-5 w-5 text-purple-600" />
+                              ) : (
+                                <Building className="h-5 w-5 text-primary" />
+                              )}
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{org.name}</CardTitle>
+                              <CardTitle className="text-lg flex items-center gap-2">
+                                {org.name}
+                                {isPlatformOrg && (
+                                  <Badge variant="outline" className="text-purple-600 border-purple-200">
+                                    Platform
+                                  </Badge>
+                                )}
+                              </CardTitle>
                               <CardDescription>{org.description}</CardDescription>
                             </div>
                           </div>
@@ -613,9 +791,11 @@ export const UserManagement: React.FC = () => {
                             <Badge variant="outline">
                               {org.activeUsers} active
                             </Badge>
-                            <Badge variant="outline">
-                              {org.adminCount} admin{org.adminCount !== 1 ? "s" : ""}
-                            </Badge>
+                            {!isPlatformOrg && (
+                              <Badge variant="outline">
+                                {org.adminCount} admin{org.adminCount !== 1 ? "s" : ""}
+                              </Badge>
+                            )}
                             <Badge variant={org.isActive ? "default" : "secondary"}>
                               {org.isActive ? "Active" : "Inactive"}
                             </Badge>
