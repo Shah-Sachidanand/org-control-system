@@ -2,30 +2,15 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import Organization from '../models/Organization';
-import { authenticateToken } from '../middleware/auth';
-import { UserRole } from '../types';
+import { AuthRequest, UserRole } from '../types';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        _id: string;
-        email: string;
-        role: UserRole;
-        organization?: string;
-      };
-    }
-  }
-}
-
 // Get platform-level users (ADMIN, SUPERADMIN without organization)
-router.get('/platform', authenticateToken, async (req, res) => {
+router.get('/platform', authenticate, async (req:AuthRequest, res) => {
   try {
-    const currentUser = req.user;
-    
+    const currentUser = req.user;   
     // Only SUPERADMIN can access platform users
     if (currentUser?.role !== 'SUPERADMIN') {
       return res.status(403).json({ error: 'Access denied. SUPERADMIN role required.' });
@@ -44,7 +29,7 @@ router.get('/platform', authenticateToken, async (req, res) => {
 });
 
 // Get users by organization
-router.get('/organization/:organizationId', authenticateToken, async (req, res) => {
+router.get('/organization/:organizationId', authenticate, async (req:AuthRequest, res) => {
   try {
     const { organizationId } = req.params;
     const currentUser = req.user;
@@ -55,12 +40,12 @@ router.get('/organization/:organizationId', authenticateToken, async (req, res) 
     } else if (currentUser?.role === 'ADMIN') {
       // ADMIN can view organizations they created
       const organization = await Organization.findById(organizationId);
-      if (!organization || organization.createdBy !== currentUser._id) {
+      if (!organization || organization.createdBy.toString() !== currentUser._id.toString()) {
         return res.status(403).json({ error: 'Access denied to this organization' });
       }
     } else if (currentUser?.role === 'ORGADMIN') {
       // ORGADMIN can only view their own organization
-      if (currentUser.organization !== organizationId) {
+      if (currentUser.organization?.toString() !== organizationId) {
         return res.status(403).json({ error: 'Access denied to this organization' });
       }
     } else {
@@ -80,7 +65,7 @@ router.get('/organization/:organizationId', authenticateToken, async (req, res) 
 });
 
 // Create new user
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticate, async (req:AuthRequest, res) => {
   try {
     const { email, password, firstName, lastName, role, organizationId } = req.body;
     const currentUser = req.user;
@@ -118,7 +103,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // Check if current user can add users to this organization
       if (currentUser?.role === 'ADMIN') {
-        if (organization.createdBy !== currentUser._id) {
+        if (organization.createdBy.toString() !== currentUser._id.toString()) {
           return res.status(403).json({ error: 'Cannot add users to this organization' });
         }
       } else if (currentUser?.role === 'ORGADMIN') {
@@ -159,7 +144,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update user permissions
-router.put('/:userId/permissions', authenticateToken, async (req, res) => {
+router.put('/:userId/permissions', authenticate, async (req:AuthRequest, res) => {
   try {
     const { userId } = req.params;
     const { permissions } = req.body;
@@ -193,7 +178,7 @@ router.put('/:userId/permissions', authenticateToken, async (req, res) => {
 
     // Update permissions
     targetUser.permissions = permissions;
-    targetUser.updatedBy = currentUser?._id;
+    (targetUser as any).updatedBy = currentUser?._id;
     await targetUser.save();
 
     const updatedUser = await User.findById(userId)
@@ -208,7 +193,7 @@ router.put('/:userId/permissions', authenticateToken, async (req, res) => {
 });
 
 // Update user status (active/inactive)
-router.put('/:userId/status', authenticateToken, async (req, res) => {
+router.put('/:userId/status', authenticate, async (req:AuthRequest, res) => {
   try {
     const { userId } = req.params;
     const { isActive } = req.body;
@@ -235,7 +220,7 @@ router.put('/:userId/status', authenticateToken, async (req, res) => {
 
     // Update status
     targetUser.isActive = isActive;
-    targetUser.updatedBy = currentUser?._id;
+    if (targetUser && currentUser?._id) targetUser.updatedBy = currentUser._id;
     await targetUser.save();
 
     const updatedUser = await User.findById(userId)
@@ -250,7 +235,7 @@ router.put('/:userId/status', authenticateToken, async (req, res) => {
 });
 
 // Delete user
-router.delete('/:userId', authenticateToken, async (req, res) => {
+router.delete('/:userId', authenticate, async (req:AuthRequest, res) => {
   try {
     const { userId } = req.params;
     const currentUser = req.user;
@@ -296,7 +281,7 @@ router.delete('/:userId', authenticateToken, async (req, res) => {
 });
 
 // Get all users (for SUPERADMIN)
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticate, async (req:AuthRequest, res) => {
   try {
     const currentUser = req.user;
 

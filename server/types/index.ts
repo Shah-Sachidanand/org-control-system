@@ -15,6 +15,7 @@ export interface IUser extends Document {
   createdAt: string;
   updatedAt: string;
   settings?: IUserSettings;
+  updatedBy?: string;
   comparePassword(password: string): Promise<boolean>;
 }
 
