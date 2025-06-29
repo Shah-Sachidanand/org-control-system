@@ -1,51 +1,40 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import { User } from '../models/User';
-import { Organization } from '../models/Organization';
-import { auth } from '../middleware/auth';
+import User from '../models/User';
+import Organization from '../models/Organization';
+import { authenticateToken } from '../middleware/auth';
 import { UserRole } from '../types';
 
 const router = express.Router();
 
-// Get all users (SUPERADMIN only)
-router.get('/', auth, async (req, res) => {
-  try {
-    const { role } = req.user;
-
-    if (role !== 'SUPERADMIN') {
-      return res.status(403).json({ error: 'Access denied' });
+// Extend Express Request type to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        _id: string;
+        email: string;
+        role: UserRole;
+        organization?: string;
+      };
     }
-
-    const users = await User.find({ role: { $ne: 'SUPERADMIN' } })
-      .populate('organization', 'name slug')
-      .select('-password')
-      .sort({ createdAt: -1 });
-
-    res.json({ users });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
   }
-});
+}
 
-// Get platform-level users (ADMIN and SUPERADMIN without organization)
-router.get('/platform', auth, async (req, res) => {
+// Get platform-level users (ADMIN, SUPERADMIN without organization)
+router.get('/platform', authenticateToken, async (req, res) => {
   try {
-    const { role } = req.user;
-
-    if (role !== 'SUPERADMIN') {
-      return res.status(403).json({ error: 'Access denied' });
+    const currentUser = req.user;
+    
+    // Only SUPERADMIN can access platform users
+    if (currentUser?.role !== 'SUPERADMIN') {
+      return res.status(403).json({ error: 'Access denied. SUPERADMIN role required.' });
     }
 
-    // Find users with ADMIN or SUPERADMIN role who don't have an organization assigned
     const platformUsers = await User.find({
-      $and: [
-        { role: { $in: ['ADMIN', 'SUPERADMIN'] } },
-        { $or: [{ organization: null }, { organization: { $exists: false } }] }
-      ]
-    })
-      .select('-password')
-      .sort({ createdAt: -1 });
+      role: { $in: ['ADMIN', 'SUPERADMIN'] },
+      organization: { $exists: false }
+    }).select('-password').sort({ createdAt: -1 });
 
     res.json({ users: platformUsers });
   } catch (error) {
@@ -55,27 +44,27 @@ router.get('/platform', auth, async (req, res) => {
 });
 
 // Get users by organization
-router.get('/organization/:organizationId', auth, async (req, res) => {
+router.get('/organization/:organizationId', authenticateToken, async (req, res) => {
   try {
     const { organizationId } = req.params;
-    const { role, organization: userOrg } = req.user;
+    const currentUser = req.user;
 
-    // Check access permissions
-    if (role === 'SUPERADMIN') {
-      // SUPERADMIN can access any organization
-    } else if (role === 'ADMIN') {
-      // ADMIN can access organizations they created
-      const org = await Organization.findById(organizationId);
-      if (!org || org.createdBy.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ error: 'Access denied' });
+    // Check if user has permission to view organization users
+    if (currentUser?.role === 'SUPERADMIN') {
+      // SUPERADMIN can view any organization
+    } else if (currentUser?.role === 'ADMIN') {
+      // ADMIN can view organizations they created
+      const organization = await Organization.findById(organizationId);
+      if (!organization || organization.createdBy !== currentUser._id) {
+        return res.status(403).json({ error: 'Access denied to this organization' });
       }
-    } else if (role === 'ORGADMIN') {
-      // ORGADMIN can only access their own organization
-      if (!userOrg || userOrg._id.toString() !== organizationId) {
-        return res.status(403).json({ error: 'Access denied' });
+    } else if (currentUser?.role === 'ORGADMIN') {
+      // ORGADMIN can only view their own organization
+      if (currentUser.organization !== organizationId) {
+        return res.status(403).json({ error: 'Access denied to this organization' });
       }
     } else {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     const users = await User.find({ organization: organizationId })
@@ -86,17 +75,22 @@ router.get('/organization/:organizationId', auth, async (req, res) => {
     res.json({ users });
   } catch (error) {
     console.error('Error fetching organization users:', error);
-    res.status(500).json({ error: 'Failed to fetch organization users' });
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-// Create user
-router.post('/', auth, async (req, res) => {
+// Create new user
+router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role, organizationId, permissions = [] } = req.body;
-    const { role: userRole, organization: userOrg } = req.user;
+    const { email, password, firstName, lastName, role, organizationId } = req.body;
+    const currentUser = req.user;
 
-    // Validate role hierarchy
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName || !role) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if user can create this role
     const roleHierarchy: Record<UserRole, UserRole[]> = {
       SUPERADMIN: ['ADMIN', 'ORGADMIN', 'USER'],
       ADMIN: ['ORGADMIN', 'USER'],
@@ -104,66 +98,58 @@ router.post('/', auth, async (req, res) => {
       USER: [],
     };
 
-    if (!roleHierarchy[userRole]?.includes(role)) {
+    const allowedRoles = roleHierarchy[currentUser?.role as UserRole] || [];
+    if (!allowedRoles.includes(role as UserRole)) {
       return res.status(403).json({ error: 'Cannot create user with this role' });
     }
 
-    // Check if user already exists
+    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Validate organization for non-platform roles
+    if (role !== 'ADMIN' && role !== 'SUPERADMIN' && organizationId) {
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        return res.status(400).json({ error: 'Invalid organization' });
+      }
+
+      // Check if current user can add users to this organization
+      if (currentUser?.role === 'ADMIN') {
+        if (organization.createdBy !== currentUser._id) {
+          return res.status(403).json({ error: 'Cannot add users to this organization' });
+        }
+      } else if (currentUser?.role === 'ORGADMIN') {
+        if (currentUser.organization !== organizationId) {
+          return res.status(403).json({ error: 'Cannot add users to this organization' });
+        }
+      }
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Determine organization assignment
-    let assignedOrganization = null;
-    
-    if (role === 'ADMIN' || role === 'SUPERADMIN') {
-      // Platform-level users don't need organization assignment
-      assignedOrganization = null;
-    } else {
-      // Organization-level users need organization assignment
-      if (!organizationId) {
-        return res.status(400).json({ error: 'Organization is required for this role' });
-      }
-
-      // Validate organization access
-      if (userRole === 'ADMIN') {
-        const org = await Organization.findById(organizationId);
-        if (!org || org.createdBy.toString() !== req.user._id.toString()) {
-          return res.status(403).json({ error: 'Cannot assign user to this organization' });
-        }
-      } else if (userRole === 'ORGADMIN') {
-        if (!userOrg || userOrg._id.toString() !== organizationId) {
-          return res.status(403).json({ error: 'Cannot assign user to this organization' });
-        }
-      }
-
-      assignedOrganization = organizationId;
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = new User({
+    const newUser = new User({
       email,
       password: hashedPassword,
       firstName,
       lastName,
       role,
-      organization: assignedOrganization,
-      permissions,
-      createdBy: req.user._id,
+      organization: (role === 'ADMIN' || role === 'SUPERADMIN') ? undefined : organizationId,
+      createdBy: currentUser?._id,
+      isActive: true,
+      permissions: [], // Default empty permissions
     });
 
-    await user.save();
+    await newUser.save();
 
-    // Populate organization for response
-    await user.populate('organization', 'name slug');
-
-    // Remove password from response
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    // Return user without password
+    const userResponse = await User.findById(newUser._id)
+      .populate('organization', 'name slug')
+      .select('-password');
 
     res.status(201).json({ user: userResponse });
   } catch (error) {
@@ -173,19 +159,19 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update user permissions
-router.put('/:userId/permissions', auth, async (req, res) => {
+router.put('/:userId/permissions', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const { permissions } = req.body;
-    const { role: userRole, organization: userOrg } = req.user;
+    const currentUser = req.user;
 
     // Find the target user
-    const targetUser = await User.findById(userId).populate('organization');
+    const targetUser = await User.findById(userId);
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if current user can manage target user
+    // Check if current user can manage this user's permissions
     const roleHierarchy: Record<UserRole, UserRole[]> = {
       SUPERADMIN: ['ADMIN', 'ORGADMIN', 'USER'],
       ADMIN: ['ORGADMIN', 'USER'],
@@ -193,56 +179,48 @@ router.put('/:userId/permissions', auth, async (req, res) => {
       USER: [],
     };
 
-    if (!roleHierarchy[userRole]?.includes(targetUser.role)) {
-      return res.status(403).json({ error: 'Cannot manage this user' });
+    const managableRoles = roleHierarchy[currentUser?.role as UserRole] || [];
+    if (!managableRoles.includes(targetUser.role as UserRole)) {
+      return res.status(403).json({ error: 'Cannot manage permissions for this user' });
     }
 
-    // Check organization access
-    if (userRole === 'ORGADMIN') {
-      if (!userOrg || !targetUser.organization || 
-          userOrg._id.toString() !== targetUser.organization._id.toString()) {
-        return res.status(403).json({ error: 'Cannot manage user from different organization' });
-      }
-    } else if (userRole === 'ADMIN') {
-      if (targetUser.organization) {
-        const org = await Organization.findById(targetUser.organization._id);
-        if (!org || org.createdBy.toString() !== req.user._id.toString()) {
-          return res.status(403).json({ error: 'Cannot manage user from this organization' });
-        }
+    // Additional organization check for ORGADMIN
+    if (currentUser?.role === 'ORGADMIN') {
+      if (currentUser.organization !== targetUser.organization?.toString()) {
+        return res.status(403).json({ error: 'Cannot manage users outside your organization' });
       }
     }
 
     // Update permissions
     targetUser.permissions = permissions;
-    targetUser.updatedBy = req.user._id;
+    targetUser.updatedBy = currentUser?._id;
     await targetUser.save();
 
-    // Populate and return updated user
-    await targetUser.populate('organization', 'name slug');
-    const userResponse = targetUser.toObject();
-    delete userResponse.password;
+    const updatedUser = await User.findById(userId)
+      .populate('organization', 'name slug')
+      .select('-password');
 
-    res.json({ user: userResponse });
+    res.json({ user: updatedUser });
   } catch (error) {
     console.error('Error updating user permissions:', error);
-    res.status(500).json({ error: 'Failed to update user permissions' });
+    res.status(500).json({ error: 'Failed to update permissions' });
   }
 });
 
-// Update user status
-router.put('/:userId/status', auth, async (req, res) => {
+// Update user status (active/inactive)
+router.put('/:userId/status', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const { isActive } = req.body;
-    const { role: userRole, organization: userOrg } = req.user;
+    const currentUser = req.user;
 
     // Find the target user
-    const targetUser = await User.findById(userId).populate('organization');
+    const targetUser = await User.findById(userId);
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if current user can manage target user
+    // Check if current user can manage this user
     const roleHierarchy: Record<UserRole, UserRole[]> = {
       SUPERADMIN: ['ADMIN', 'ORGADMIN', 'USER'],
       ADMIN: ['ORGADMIN', 'USER'],
@@ -250,36 +228,21 @@ router.put('/:userId/status', auth, async (req, res) => {
       USER: [],
     };
 
-    if (!roleHierarchy[userRole]?.includes(targetUser.role)) {
+    const managableRoles = roleHierarchy[currentUser?.role as UserRole] || [];
+    if (!managableRoles.includes(targetUser.role as UserRole)) {
       return res.status(403).json({ error: 'Cannot manage this user' });
-    }
-
-    // Check organization access
-    if (userRole === 'ORGADMIN') {
-      if (!userOrg || !targetUser.organization || 
-          userOrg._id.toString() !== targetUser.organization._id.toString()) {
-        return res.status(403).json({ error: 'Cannot manage user from different organization' });
-      }
-    } else if (userRole === 'ADMIN') {
-      if (targetUser.organization) {
-        const org = await Organization.findById(targetUser.organization._id);
-        if (!org || org.createdBy.toString() !== req.user._id.toString()) {
-          return res.status(403).json({ error: 'Cannot manage user from this organization' });
-        }
-      }
     }
 
     // Update status
     targetUser.isActive = isActive;
-    targetUser.updatedBy = req.user._id;
+    targetUser.updatedBy = currentUser?._id;
     await targetUser.save();
 
-    // Populate and return updated user
-    await targetUser.populate('organization', 'name slug');
-    const userResponse = targetUser.toObject();
-    delete userResponse.password;
+    const updatedUser = await User.findById(userId)
+      .populate('organization', 'name slug')
+      .select('-password');
 
-    res.json({ user: userResponse });
+    res.json({ user: updatedUser });
   } catch (error) {
     console.error('Error updating user status:', error);
     res.status(500).json({ error: 'Failed to update user status' });
@@ -287,18 +250,18 @@ router.put('/:userId/status', auth, async (req, res) => {
 });
 
 // Delete user
-router.delete('/:userId', auth, async (req, res) => {
+router.delete('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role: userRole, organization: userOrg } = req.user;
+    const currentUser = req.user;
 
     // Find the target user
-    const targetUser = await User.findById(userId).populate('organization');
+    const targetUser = await User.findById(userId);
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if current user can manage target user
+    // Check if current user can delete this user
     const roleHierarchy: Record<UserRole, UserRole[]> = {
       SUPERADMIN: ['ADMIN', 'ORGADMIN', 'USER'],
       ADMIN: ['ORGADMIN', 'USER'],
@@ -306,32 +269,51 @@ router.delete('/:userId', auth, async (req, res) => {
       USER: [],
     };
 
-    if (!roleHierarchy[userRole]?.includes(targetUser.role)) {
+    const managableRoles = roleHierarchy[currentUser?.role as UserRole] || [];
+    if (!managableRoles.includes(targetUser.role as UserRole)) {
       return res.status(403).json({ error: 'Cannot delete this user' });
     }
 
-    // Check organization access
-    if (userRole === 'ORGADMIN') {
-      if (!userOrg || !targetUser.organization || 
-          userOrg._id.toString() !== targetUser.organization._id.toString()) {
-        return res.status(403).json({ error: 'Cannot delete user from different organization' });
-      }
-    } else if (userRole === 'ADMIN') {
-      if (targetUser.organization) {
-        const org = await Organization.findById(targetUser.organization._id);
-        if (!org || org.createdBy.toString() !== req.user._id.toString()) {
-          return res.status(403).json({ error: 'Cannot delete user from this organization' });
-        }
+    // Additional organization check for ORGADMIN
+    if (currentUser?.role === 'ORGADMIN') {
+      if (currentUser.organization !== targetUser.organization?.toString()) {
+        return res.status(403).json({ error: 'Cannot delete users outside your organization' });
       }
     }
 
-    // Delete user
+    // Prevent self-deletion
+    if (targetUser._id.toString() === currentUser?._id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
     await User.findByIdAndDelete(userId);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Get all users (for SUPERADMIN)
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const currentUser = req.user;
+
+    // Only SUPERADMIN can view all users
+    if (currentUser?.role !== 'SUPERADMIN') {
+      return res.status(403).json({ error: 'Access denied. SUPERADMIN role required.' });
+    }
+
+    const users = await User.find({})
+      .populate('organization', 'name slug')
+      .select('-password')
+      .sort({ createdAt: -1 });
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Error fetching all users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
