@@ -11,6 +11,20 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Alert, AlertDescription } from "./ui/alert";
+import {
   Home,
   Building,
   Users,
@@ -36,22 +50,12 @@ import {
   Menu,
   X,
   ChevronLeft,
+  Zap,
+  TrendingUp,
+  Activity,
+  Sparkles
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "./ui/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Alert, AlertDescription } from "./ui/alert";
 
 interface SidebarProps {
   className?: string;
@@ -100,6 +104,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     badge?: string;
     disabled?: boolean;
     disabledReason?: string;
+    isNew?: boolean;
+    isPopular?: boolean;
   };
 
   type NavigationItem = {
@@ -112,6 +118,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     children?: NavigationChild[];
     disabled?: boolean;
     disabledReason?: string;
+    isNew?: boolean;
+    isPopular?: boolean;
   };
 
   // Enhanced feature availability checking with comprehensive validation
@@ -134,6 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       href: "/",
       icon: Home,
       show: true,
+      isPopular: true,
     },
     {
       title: "Organizations",
@@ -155,6 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       icon: Handshake,
       show: hasFeatureAccess("partner_management", "ORGANIZATION"),
       badge: "Sponsors",
+      isNew: true,
       ...(() => {
         const { isAvailable, reason } = checkFeatureAvailability("partner_management");
         return { disabled: !isAvailable, disabledReason: reason };
@@ -165,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       icon: Megaphone,
       show: hasFeatureAccess("promotion", "ORGANIZATION"),
       section: "promotions",
+      isPopular: true,
       ...(() => {
         const { isAvailable, reason } = checkFeatureAvailability("promotion");
         return { disabled: !isAvailable, disabledReason: reason };
@@ -195,6 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           href: "/promotions/create",
           icon: Plus,
           show: hasPermission("promotion", "write"),
+          isNew: true,
           ...(() => {
             const { isAvailable, reason } = checkFeatureAvailability("promotion");
             return { disabled: !isAvailable, disabledReason: reason };
@@ -300,25 +312,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         "flex items-center space-x-3 transition-all duration-200",
         isCollapsed && "justify-center"
       )}>
-        <item.icon className={cn(
-          "h-4 w-4 transition-all duration-200",
-          hoveredItem === item.title && "scale-110"
-        )} />
+        <div className="relative">
+          <item.icon className={cn(
+            "h-4 w-4 transition-all duration-200",
+            hoveredItem === item.title && "scale-110"
+          )} />
+          {item.isNew && !isCollapsed && (
+            <Sparkles className="absolute -top-1 -right-1 h-2 w-2 text-blue-500 animate-pulse" />
+          )}
+        </div>
         {!isCollapsed && (
           <>
-            <span className="text-sm font-medium transition-all duration-200">
+            <span className="text-sm font-medium transition-all duration-200 flex-1">
               {item.title}
             </span>
-            {item.badge && (
-              <Badge variant="secondary" className="text-xs transition-all duration-200">
-                {item.badge}
-              </Badge>
-            )}
-            {item.disabled && (
-              <div className="flex items-center">
+            <div className="flex items-center gap-1">
+              {item.badge && (
+                <Badge variant="secondary" className="text-xs transition-all duration-200">
+                  {item.badge}
+                </Badge>
+              )}
+              {item.isNew && (
+                <Badge variant="default" className="text-xs bg-blue-500 hover:bg-blue-600">
+                  New
+                </Badge>
+              )}
+              {item.isPopular && (
+                <Badge variant="outline" className="text-xs border-orange-200 text-orange-600">
+                  <TrendingUp className="h-2 w-2 mr-1" />
+                  Popular
+                </Badge>
+              )}
+              {item.disabled && (
                 <Lock className="h-3 w-3 text-muted-foreground" />
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
       </div>
@@ -381,7 +409,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        "flex h-full flex-col border-r bg-background transition-all duration-300 ease-in-out",
+        "flex h-full flex-col border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out",
         isCollapsed ? "w-16" : "w-64",
         className
       )}
@@ -392,7 +420,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           "flex items-center space-x-2 transition-all duration-200",
           isCollapsed && "justify-center w-full"
         )}>
-          <ShieldCheck className="h-8 w-8 text-primary" />
+          <div className="relative">
+            <ShieldCheck className="h-8 w-8 text-primary" />
+            <Activity className="absolute -top-1 -right-1 h-3 w-3 text-green-500 animate-pulse" />
+          </div>
           {!isCollapsed && (
             <div className="flex flex-col">
               <span className="font-bold text-lg">OrgControl</span>
@@ -428,8 +459,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           "flex items-center space-x-3",
           isCollapsed && "justify-center"
         )}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <Users className="h-5 w-5 text-primary" />
+          <div className="relative">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background"></div>
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
@@ -572,6 +606,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                         </TooltipTrigger>
                         <TooltipContent side="right">
                           <p>{item.title}</p>
+                          {item.isNew && <p className="text-xs text-blue-400">New Feature!</p>}
+                          {item.isPopular && <p className="text-xs text-orange-400">Popular</p>}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -594,14 +630,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           )}>
             <Avatar className="h-8 w-8">
               <AvatarImage src="" />
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
               </AvatarFallback>
             </Avatar>
             {!isCollapsed && (
-              <span className="text-sm truncate">
-                {user?.firstName + " " + user?.lastName}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm truncate block">
+                  {user?.firstName + " " + user?.lastName}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Online
+                </span>
+              </div>
             )}
           </div>
         </DropdownMenuTrigger>
