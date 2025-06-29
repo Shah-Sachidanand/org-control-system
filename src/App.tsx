@@ -10,6 +10,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/Topbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SecurityAuditPanel } from "./components/SecurityAuditPanel";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Unauthorized } from "./pages/Unauthorized";
@@ -103,33 +104,40 @@ const AppContent: React.FC = () => {
               }
             />
 
-            {/* Feature Management Routes */}
+            {/* Feature Management Routes - SYSTEM Level */}
             <Route
               path="/features"
               element={
-                <ProtectedRoute requireAnyRole={["SUPERADMIN"]}>
+                <ProtectedRoute 
+                  requireAnyRole={["SUPERADMIN"]}
+                  featureLevel="SYSTEM"
+                  requiredPermission={{ feature: "system_management", action: "manage" }}
+                >
                   <FeatureManagement />
                 </ProtectedRoute>
               }
             />
 
-            {/* Partner Management */}
+            {/* Partner Management - ORGANIZATION Level */}
             <Route
               path="/partners"
               element={
                 <ProtectedRoute
                   requireAnyRole={["ORGADMIN", "ADMIN", "SUPERADMIN"]}
+                  featureLevel="ORGANIZATION"
+                  requiredPermission={{ feature: "partner_management", action: "read" }}
                 >
                   <PartnerManagement />
                 </ProtectedRoute>
               }
             />
 
-            {/* Promotion Routes */}
+            {/* Promotion Routes - ORGANIZATION Level */}
             <Route
               path="/promotions"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{ feature: "promotion", action: "read" }}
                 >
                   <PromotionDashboard />
@@ -141,6 +149,7 @@ const AppContent: React.FC = () => {
               path="/promotions/view"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{ feature: "promotion", action: "read" }}
                 >
                   <ViewPromotions />
@@ -152,6 +161,7 @@ const AppContent: React.FC = () => {
               path="/promotions/create"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{ feature: "promotion", action: "write" }}
                 >
                   <CreatePromotion />
@@ -159,11 +169,12 @@ const AppContent: React.FC = () => {
               }
             />
 
-            {/* Merchandise Routes */}
+            {/* Merchandise Routes - ORGANIZATION Level */}
             <Route
               path="/merchandise"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{
                     feature: "merchandise",
                     action: "read",
@@ -178,6 +189,7 @@ const AppContent: React.FC = () => {
               path="/merchandise/view"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{
                     feature: "merchandise",
                     action: "read",
@@ -192,6 +204,7 @@ const AppContent: React.FC = () => {
               path="/merchandise/add"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{
                     feature: "merchandise",
                     action: "write",
@@ -202,11 +215,12 @@ const AppContent: React.FC = () => {
               }
             />
 
-            {/* User Management Routes */}
+            {/* User Management Routes - ORGANIZATION Level */}
             <Route
               path="/users"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{
                     feature: "user_management",
                     action: "read",
@@ -222,6 +236,7 @@ const AppContent: React.FC = () => {
               path="/users/invite"
               element={
                 <ProtectedRoute
+                  featureLevel="ORGANIZATION"
                   requiredPermission={{
                     feature: "user_management",
                     action: "write",
@@ -233,21 +248,29 @@ const AppContent: React.FC = () => {
               }
             />
 
-            {/* Admin Invitation Routes */}
+            {/* Admin Invitation Routes - SYSTEM Level */}
             <Route
               path="/admin/invite"
               element={
-                <ProtectedRoute requireAnyRole={["SUPERADMIN"]}>
+                <ProtectedRoute 
+                  requireAnyRole={["SUPERADMIN"]}
+                  featureLevel="SYSTEM"
+                  requiredPermission={{ feature: "system_management", action: "manage" }}
+                >
                   <InviteAdmin />
                 </ProtectedRoute>
               }
             />
 
-            {/* Organization Routes */}
+            {/* Organization Routes - USER_ROLE Level */}
             <Route
               path="/organizations"
               element={
-                <ProtectedRoute requireAnyRole={["ADMIN", "SUPERADMIN"]}>
+                <ProtectedRoute 
+                  requireAnyRole={["ADMIN", "SUPERADMIN"]}
+                  featureLevel="USER_ROLE"
+                  requiredPermission={{ feature: "organization_management", action: "read" }}
+                >
                   <OrganizationManagement />
                 </ProtectedRoute>
               }
@@ -258,6 +281,10 @@ const AppContent: React.FC = () => {
           </Routes>
         </main>
       </div>
+      
+      {/* Security Audit Panel - Only visible to SUPERADMIN and ADMIN */}
+      <SecurityAuditPanel />
+      
       <Toaster />
     </div>
   );
