@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const response = await HttpClient.get(`/auth/me`);
       setUser(response.data.user);
-    } catch (error) {
+    } catch {
       localStorage.removeItem("token");
       setToken(null);
     }
@@ -128,9 +128,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     if (!user) return false;
 
     const roleHierarchy: Record<UserRole, UserRole[]> = {
-      SUPERADMIN: ["ADMIN", "ORGADMIN", "USER"],
-      ADMIN: ["ORGADMIN", "USER"],
-      ORGADMIN: ["USER"],
+      SUPERADMIN: [UserRole.ADMIN, UserRole.ORGADMIN, UserRole.USER],
+      ADMIN: [UserRole.ORGADMIN, UserRole.USER],
+      ORGADMIN: [UserRole.USER],
       USER: [],
     };
 
@@ -232,47 +232,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // CRITICAL FIX: Enhanced feature access with comprehensive validation
-  const hasFeatureAccess = (
-    featureName: string,
-    featureLevel?: string
-  ): boolean => {
-    if (!user) return false;
+const hasFeatureAccess = (
+  featureName: string,
+  featureLevel?: string
+): boolean => {
+  if (!user) return false;
 
-    // SUPERADMIN has access to all features
-    if (user.role === "SUPERADMIN") return true;
+  // SUPERADMIN has access to all features
+  if (user.role === "SUPERADMIN") return true;
 
-    // Check based on feature level and user role
-    switch (featureLevel) {
-      case "SYSTEM":
-        return user.role === "SUPERADMIN";
-      case "USER_ROLE":
-        return ["ADMIN", "SUPERADMIN"].includes(user.role);
-      case "ORGANIZATION":
-        // Check if user has role access AND organization has feature enabled
-        const hasRoleAccess = ["ORGADMIN", "ADMIN", "SUPERADMIN"].includes(user.role);
-        if (!hasRoleAccess) return false;
-        
-        // CRITICAL: Validate organization feature access
-        return validateOrganizationFeatureAccess(featureName);
-      default:
-        // Check specific permission and organization feature
-        const hasUserPermission = hasPermission(featureName);
-        const hasOrgFeature = validateOrganizationFeatureAccess(featureName);
-        return hasUserPermission && hasOrgFeature;
+  // Check based on feature level and user role
+  switch (featureLevel) {
+    case "SYSTEM": {
+      return user.role === "SUPERADMIN" as UserRole;;
     }
-  };
+
+    case "USER_ROLE": {
+      return [UserRole.ADMIN, UserRole.SUPERADMIN].includes(user.role);
+    }
+
+    case "ORGANIZATION": {
+      // Check if user has role access AND organization has feature enabled
+      const hasRoleAccess = [UserRole.ORGADMIN, UserRole.ADMIN, UserRole.SUPERADMIN].includes(user.role);
+      if (!hasRoleAccess) return false;
+
+      // CRITICAL: Validate organization feature access
+      return validateOrganizationFeatureAccess(featureName);
+    }
+
+    default: {
+      // Check specific permission and organization feature
+      const hasUserPermission = hasPermission(featureName);
+      const hasOrgFeature = validateOrganizationFeatureAccess(featureName);
+      return hasUserPermission && hasOrgFeature;
+    }
+  }
+};
 
   // CRITICAL FIX: Enhanced access denied reason with specific feedback
   const getAccessDeniedReason = (feature: string, action: PermissionAction = "read", subFeature?: string): string => {
     if (!user) return "You must be logged in to access this feature.";
 
     // Check if user has organization (for organization-level features)
-    if (!user.organization && user.role !== "SUPERADMIN" && user.role !== "ADMIN") {
+    if (!user.organization && user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN) {
       return "You are not assigned to any organization. Contact your administrator to be added to an organization.";
     }
 
     // Check role requirements first
-    const roleHierarchy = ["USER", "ORGADMIN", "ADMIN", "SUPERADMIN"];
+    const roleHierarchy = [UserRole.USER, UserRole.ORGADMIN, UserRole.ADMIN, UserRole.SUPERADMIN];
     const userRoleIndex = roleHierarchy.indexOf(user.role);
     
     if (userRoleIndex === -1) {

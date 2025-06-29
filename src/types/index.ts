@@ -211,15 +211,19 @@ export interface Notification {
   relatedId?: string;
   relatedType?: string;
   actionUrl?: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
   expiresAt?: string;
   readAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export type UserRole = "USER" | "ORGADMIN" | "ADMIN" | "SUPERADMIN";
-
+export enum UserRole {
+  USER = "USER",
+  ORGADMIN = "ORGADMIN", 
+  ADMIN = "ADMIN",
+  SUPERADMIN = "SUPERADMIN"
+}
 export type PermissionAction = "read" | "write" | "delete" | "manage";
 
 export type FeatureLevel = "ORGANIZATION" | "USER_ROLE" | "SYSTEM";
