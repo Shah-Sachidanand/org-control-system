@@ -32,7 +32,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     hasFeatureAccess, 
     validateOrganizationFeatureAccess,
     checkCrossOrganizationAccess,
-    getAccessDeniedReason
+    getAccessDeniedReason,
+    validateUserOrganizationMembership
   } = useAuth();
 
   if (loading) {
@@ -44,34 +45,41 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
+    console.warn("ProtectedRoute: No authenticated user, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
-  // CRITICAL FIX: Enhanced organization access validation
-  if (organizationId && !checkCrossOrganizationAccess(organizationId)) {
-    console.warn(`User ${user.email} attempted to access organization ${organizationId} without permission`);
+  // CRITICAL FIX: Enhanced organization membership validation
+  if (!validateUserOrganizationMembership()) {
+    console.warn(`ProtectedRoute: User ${user.email} failed organization membership validation`);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Check role requirement with proper hierarchy validation
+  // CRITICAL FIX: Enhanced organization access validation with detailed logging
+  if (organizationId && !checkCrossOrganizationAccess(organizationId)) {
+    console.warn(`ProtectedRoute: User ${user.email} attempted unauthorized access to organization ${organizationId}`);
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // CRITICAL FIX: Enhanced role requirement validation with proper hierarchy checking
   if (requiredRole && !hasRole(requiredRole)) {
     const roleHierarchy = ["USER", "ORGADMIN", "ADMIN", "SUPERADMIN"];
     const userRoleIndex = roleHierarchy.indexOf(user.role);
     const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
 
     if (userRoleIndex < requiredRoleIndex) {
-      console.warn(`User ${user.email} with role ${user.role} attempted to access ${requiredRole} required resource`);
+      console.warn(`ProtectedRoute: User ${user.email} with role ${user.role} attempted to access ${requiredRole} required resource`);
       return <Navigate to="/unauthorized" replace />;
     }
   }
 
   // Check if user has any of the required roles
   if (requireAnyRole && !requireAnyRole.some((role) => hasRole(role))) {
-    console.warn(`User ${user.email} attempted to access resource requiring roles: ${requireAnyRole.join(', ')}`);
+    console.warn(`ProtectedRoute: User ${user.email} attempted to access resource requiring roles: ${requireAnyRole.join(', ')}`);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // CRITICAL FIX: Enhanced permission requirement validation with organization feature checks
+  // CRITICAL FIX: Enhanced permission requirement validation with comprehensive organization feature checks
   if (requiredPermission) {
     const { feature, action = "read", subFeature } = requiredPermission;
     
@@ -79,7 +87,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const hasUserPermission = hasPermission(feature, action, subFeature);
     
     if (!hasUserPermission) {
-      console.warn(`User ${user.email} lacks permission: ${feature}:${subFeature || 'none'}:${action}`);
+      console.warn(`ProtectedRoute: User ${user.email} lacks permission: ${feature}:${subFeature || 'none'}:${action}`);
       return <Navigate to="/unauthorized" replace />;
     }
 
@@ -92,20 +100,32 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       
       if (!hasOrgFeature) {
         const reason = getAccessDeniedReason(feature, action, subFeature);
-        console.warn(`Organization feature access denied for user ${user.email}: ${reason}`);
+        console.warn(`ProtectedRoute: Organization feature access denied for user ${user.email}: ${reason}`);
         return <Navigate to="/unauthorized" replace />;
       }
     }
   }
 
-  // CRITICAL FIX: Enhanced feature access validation with level-specific checks
+  // CRITICAL FIX: Enhanced feature access validation with level-specific checks and audit logging
   if (featureLevel && requiredPermission) {
     const hasAccess = hasFeatureAccess(requiredPermission.feature, featureLevel);
     if (!hasAccess) {
-      console.warn(`User ${user.email} lacks feature access: ${requiredPermission.feature} at level ${featureLevel}`);
+      console.warn(`ProtectedRoute: User ${user.email} lacks feature access: ${requiredPermission.feature} at level ${featureLevel}`);
       return <Navigate to="/unauthorized" replace />;
     }
   }
+
+  // CRITICAL FIX: Additional security validation for sensitive operations
+  if (requiredPermission?.action === "delete" || requiredPermission?.action === "manage") {
+    // Extra validation for destructive operations
+    if (user.role === "USER") {
+      console.warn(`ProtectedRoute: USER ${user.email} attempted destructive operation: ${requiredPermission.action} on ${requiredPermission.feature}`);
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
+
+  // Log successful access for audit purposes
+  console.log(`ProtectedRoute: Access granted to user ${user.email} for ${requiredPermission?.feature || 'general'} access`);
 
   return <>{children}</>;
 };

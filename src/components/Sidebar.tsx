@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -33,6 +33,9 @@ import {
   AlertTriangle,
   Lock,
   Info,
+  Menu,
+  X,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
@@ -64,13 +67,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     getAccessDeniedReason,
     logout 
   } = useAuth();
+  
   const location = useLocation();
   const navigate = useNavigate();
-  const [openSections, setOpenSections] = React.useState<string[]>([
+  
+  const [openSections, setOpenSections] = useState<string[]>([
     "promotions",
     "merchandise",
     "users",
   ]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const toggleSection = (section: string) => {
     setOpenSections((prev) =>
@@ -107,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     disabledReason?: string;
   };
 
-  // CRITICAL FIX: Enhanced feature availability checking with comprehensive validation
+  // Enhanced feature availability checking with comprehensive validation
   const checkFeatureAvailability = (featureName: string, subFeatureName?: string) => {
     const hasUserPermission = hasPermission(featureName, "read", subFeatureName);
     const hasOrgFeature = validateOrganizationFeatureAccess(featureName, subFeatureName);
@@ -289,18 +296,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   const renderNavigationItem = (item: NavigationItem | NavigationChild) => {
     const content = (
-      <div className="flex items-center space-x-3">
-        <item.icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{item.title}</span>
-        {item.badge && (
-          <Badge variant="secondary" className="text-xs">
-            {item.badge}
-          </Badge>
-        )}
-        {item.disabled && (
-          <div className="flex items-center">
-            <Lock className="h-3 w-3 text-muted-foreground" />
-          </div>
+      <div className={cn(
+        "flex items-center space-x-3 transition-all duration-200",
+        isCollapsed && "justify-center"
+      )}>
+        <item.icon className={cn(
+          "h-4 w-4 transition-all duration-200",
+          hoveredItem === item.title && "scale-110"
+        )} />
+        {!isCollapsed && (
+          <>
+            <span className="text-sm font-medium transition-all duration-200">
+              {item.title}
+            </span>
+            {item.badge && (
+              <Badge variant="secondary" className="text-xs transition-all duration-200">
+                {item.badge}
+              </Badge>
+            )}
+            {item.disabled && (
+              <div className="flex items-center">
+                <Lock className="h-3 w-3 text-muted-foreground" />
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -331,20 +350,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     return content;
   };
 
-  // CRITICAL FIX: Add organization status indicator
   const getOrganizationStatus = () => {
     if (!user) return null;
 
     if (user.role === "SUPERADMIN") {
-      return { status: "Platform Admin", color: "bg-red-100 text-red-800" };
+      return { status: "Platform Admin", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" };
     }
 
     if (user.role === "ADMIN") {
-      return { status: "Platform Admin", color: "bg-purple-100 text-purple-800" };
+      return { status: "Platform Admin", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" };
     }
 
     if (!user.organization) {
-      return { status: "No Organization", color: "bg-red-100 text-red-800" };
+      return { status: "No Organization", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" };
     }
 
     const enabledFeatures = user.organization.features?.filter(f => f.isEnabled).length || 0;
@@ -352,7 +370,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
     return {
       status: `${enabledFeatures}/${totalFeatures} Features`,
-      color: enabledFeatures === totalFeatures ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+      color: enabledFeatures === totalFeatures 
+        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" 
+        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
     };
   };
 
@@ -361,48 +381,77 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        "flex h-full w-64 flex-col border-r bg-background",
+        "flex h-full flex-col border-r bg-background transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-16" : "w-64",
         className
       )}
     >
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b px-6">
-        <Link to="/" className="flex items-center space-x-2">
+      {/* Logo & Collapse Toggle */}
+      <div className="flex h-16 items-center border-b px-6 relative">
+        <Link to="/" className={cn(
+          "flex items-center space-x-2 transition-all duration-200",
+          isCollapsed && "justify-center w-full"
+        )}>
           <ShieldCheck className="h-8 w-8 text-primary" />
-          <div className="flex flex-col">
-            <span className="font-bold text-lg">OrgControl</span>
-            <span className="text-xs text-muted-foreground">
-              {user?.organization?.name || "Platform"}
-            </span>
-          </div>
+          {!isCollapsed && (
+            <div className="flex flex-col">
+              <span className="font-bold text-lg">OrgControl</span>
+              <span className="text-xs text-muted-foreground">
+                {user?.organization?.name || "Platform"}
+              </span>
+            </div>
+          )}
         </Link>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            "absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border bg-background hover:bg-accent transition-all duration-200",
+            "shadow-md hover:shadow-lg"
+          )}
+        >
+          <ChevronLeft className={cn(
+            "h-3 w-3 transition-transform duration-200",
+            isCollapsed && "rotate-180"
+          )} />
+        </Button>
       </div>
 
       {/* User Info with Enhanced Status */}
-      <div className="border-b p-4">
-        <div className="flex items-center space-x-3">
+      <div className={cn(
+        "border-b p-4 transition-all duration-200",
+        isCollapsed ? "px-2" : "px-4"
+      )}>
+        <div className={cn(
+          "flex items-center space-x-3",
+          isCollapsed && "justify-center"
+        )}>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
             <Users className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {user?.firstName} {user?.lastName}
-            </p>
-            <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="text-xs">
-                {user?.role}
-              </Badge>
-              {orgStatus && (
-                <Badge className={`text-xs ${orgStatus.color}`}>
-                  {orgStatus.status}
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="text-xs">
+                  {user?.role}
                 </Badge>
-              )}
+                {orgStatus && (
+                  <Badge className={`text-xs ${orgStatus.color}`}>
+                    {orgStatus.status}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* CRITICAL FIX: Organization status alert */}
-        {user && !user.organization && user.role !== "SUPERADMIN" && user.role !== "ADMIN" && (
+        {/* Organization status alert */}
+        {!isCollapsed && user && !user.organization && user.role !== "SUPERADMIN" && user.role !== "ADMIN" && (
           <Alert className="mt-3">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
@@ -427,27 +476,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
               return (
                 <Collapsible
                   key={item.title}
-                  open={isOpen}
-                  onOpenChange={() => toggleSection(item.section!)}
+                  open={isOpen && !isCollapsed}
+                  onOpenChange={() => !isCollapsed && toggleSection(item.section!)}
                 >
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
                       className={cn(
-                        "w-full justify-between px-3 py-2 h-auto",
-                        (isOpen || hasActiveChild) &&
-                          "bg-accent text-accent-foreground",
-                        item.disabled && "opacity-50"
+                        "w-full justify-between px-3 py-2 h-auto transition-all duration-200 hover:bg-accent/70",
+                        (isOpen || hasActiveChild) && "bg-accent text-accent-foreground",
+                        item.disabled && "opacity-50 cursor-not-allowed",
+                        isCollapsed && "justify-center px-2"
                       )}
                       disabled={item.disabled}
+                      onMouseEnter={() => setHoveredItem(item.title)}
+                      onMouseLeave={() => setHoveredItem(null)}
                     >
                       {renderNavigationItem(item)}
-                      {!item.disabled && (
-                        isOpen ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )
+                      {!item.disabled && !isCollapsed && (
+                        <div className="transition-transform duration-200">
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
                       )}
                     </Button>
                   </CollapsibleTrigger>
@@ -470,10 +523,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                           size="sm"
                           asChild
                           className={cn(
-                            "w-full justify-start px-3 py-2 h-auto",
-                            isActive(child.href) &&
-                              "bg-accent text-accent-foreground"
+                            "w-full justify-start px-3 py-2 h-auto transition-all duration-200 hover:bg-accent/70",
+                            isActive(child.href) && "bg-accent text-accent-foreground"
                           )}
+                          onMouseEnter={() => setHoveredItem(child.title)}
+                          onMouseLeave={() => setHoveredItem(null)}
                         >
                           <Link to={child.href}>
                             {renderNavigationItem(child)}
@@ -500,14 +554,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 variant="ghost"
                 asChild
                 className={cn(
-                  "w-full justify-start px-3 py-2 h-auto",
+                  "w-full justify-start px-3 py-2 h-auto transition-all duration-200 hover:bg-accent/70",
                   item.href &&
                     isActive(item.href) &&
-                    "bg-accent text-accent-foreground"
+                    "bg-accent text-accent-foreground",
+                  isCollapsed && "justify-center px-2"
                 )}
+                onMouseEnter={() => setHoveredItem(item.title)}
+                onMouseLeave={() => setHoveredItem(null)}
               >
                 <Link to={item.href!}>
-                  {renderNavigationItem(item)}
+                  {isCollapsed ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>{renderNavigationItem(item)}</div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>{item.title}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    renderNavigationItem(item)
+                  )}
                 </Link>
               </Button>
             );
@@ -518,16 +588,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* User Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div className="flex items-center px-4 py-2 cursor-pointer gap-2 hover:bg-accent hover:text-accent-foreground">
-            <Avatar>
+          <div className={cn(
+            "flex items-center px-4 py-2 cursor-pointer gap-2 hover:bg-accent hover:text-accent-foreground transition-all duration-200 border-t",
+            isCollapsed && "justify-center px-2"
+          )}>
+            <Avatar className="h-8 w-8">
               <AvatarImage src="" />
-              <AvatarFallback>
+              <AvatarFallback className="text-xs">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm">
-              {user?.firstName + " " + user?.lastName}
-            </span>
+            {!isCollapsed && (
+              <span className="text-sm truncate">
+                {user?.firstName + " " + user?.lastName}
+              </span>
+            )}
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
